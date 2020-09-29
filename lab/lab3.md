@@ -1,6 +1,6 @@
 # Lab 3: Address Space Management
-**Design Doc Due: 5/15/20 at 11:59pm. \
-Complete Lab Due: 5/22/20 at 11:59pm.**
+**Design Doc Due: 11/19/20 at 11:59pm. \
+Complete Lab Due: 11/30/20 at 11:59pm.**
 
 
 ## Introduction

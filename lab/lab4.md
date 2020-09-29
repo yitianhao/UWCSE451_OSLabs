@@ -1,6 +1,6 @@
 # Lab 4: Filesystem
-**Design Doc Due: 05/29/20 at 11:59pm. \
-Complete Lab Due: 06/05/20 at 11:59pm.**
+**Design Doc Due: 12/04/20 at 11:59pm. \
+Complete Lab Due: 12/11/20 at 11:59pm.**
 
 ## Introduction
 A restriction on the file system behavior in previous labs is that

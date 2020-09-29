@@ -1,5 +1,5 @@
 # Lab 1: Interrupts and System Calls
-## Due 4/17/2020 (Friday) at 11:59pm.
+## Due 10/16/2020 (Friday) at 11:59pm.
 
 ## Introduction
 All of our labs are based on the Experimental Kernel (i.e., xk). xk is a new experimental
@@ -24,7 +24,7 @@ Follow the instructions there to set up your ssh keys if you haven't.
 
 You need to clone the course repository, by running the commands below. You need to use either a x86_64 linux machine or a mac. You can also use attu by logging into it remotely (`ssh attu.cs.washington.edu`).
 ```
-$ git clone git@gitlab.cs.washington.edu:xk-public/20sp.git xk
+$ git clone git@gitlab.cs.washington.edu:xk-public/20au.git xk
 Cloning into xk...
 $ cd xk
 ```
@@ -44,7 +44,7 @@ If you are part of a team, then only one person should create the repo and perfo
 team member should directly pull the newly created repo.
 ```
 $ git clone git@gitlab.cs.washington.edu:<uwid>/<proj_name>.git
-$ git remote add upstream git@gitlab.cs.washington.edu:xk-public/20sp.git
+$ git remote add upstream git@gitlab.cs.washington.edu:xk-public/20au.git
 ```
 Before you start coding, add a git tag
 ```
@@ -68,7 +68,7 @@ branch with the initial code you downloaded from the course server for this assi
 
 We have set up the appropriate compilers and simulators for you on attu. Run the following command:
 ```
-export PATH=/cse/courses/cse451/17au/bin/x86_64-softmmu:$PATH
+export PATH=/cse/courses/cse451/20au/bin/x86_64-softmmu:$PATH
 ```
 or add it to your shell startup file (`~/.bashrc` for BASH). If you are working on your own machine, you’ll need to install the toolchains. Follow the instructions from the [software setup page](tools.md).
 

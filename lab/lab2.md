@@ -1,6 +1,6 @@
 # Lab 2: Multiprocessing
-## Design Due 04/28/2020 (Tuesday) at 11:59pm.
-## Lab Due 05/08/2020 (Friday) at 11:59pm.
+## Design Due 10/23/2020 (Friday) at 11:59pm.
+## Lab Due 11/04/2020 (Wednesday) at 11:59pm.
 
 ## Introduction
 This lab adds multiprocessing to xk. As a first step,
