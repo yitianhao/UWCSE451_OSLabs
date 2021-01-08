@@ -1,0 +1,19 @@
+1.
+line#22 prints the cpu information,
+line#23 prints the physical mempry table.
+
+2.
+The memory address of main is: 0xffffffff801034ae
+no? (GDB even don't know the physical address?)
+
+3.
+xk maps kernel and user-application into the same address space because this
+makes kernel's system call code directly refer to user memory.
+
+4.
+User malloc just malloc the memory needed for user process;
+xk kernel malloc malloc the whole 4096-byte pages at a time, for user processes,
+kernel stacks, page tables, and pipe buffers.
+
+User printf prints to some given fd;
+xk kernel printf prints to console.
