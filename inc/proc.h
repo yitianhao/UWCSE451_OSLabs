@@ -5,7 +5,8 @@
 #include <vspace.h>
 
 // Per-CPU state
-struct cpu {
+struct cpu
+{
   uchar apicid;              // Local APIC ID
   struct context *scheduler; // swtch() here to enter scheduler
   struct tss ts;             // Used by x86 to find stack for interrupt
@@ -31,7 +32,8 @@ extern int ncpu;
 // in thread libraries such as Linux pthreads.
 
 // static inline struct cpu *
-static struct cpu *mycpu(void) {
+static struct cpu *mycpu(void)
+{
   // uint64_t val;
   // __asm volatile("movq %%gs:0, %0" : "=r" (val));
   // if (val != 0xffffffff8019a780) {
@@ -46,7 +48,8 @@ static struct cpu *mycpu(void) {
   return &cpus[0];
 }
 
-static inline struct proc *myproc(void) {
+static inline struct proc *myproc(void)
+{
   // uint64_t val;
   // __asm volatile("movq %%gs:8, %0" : "=r" (val));
   // return (struct proc *)val;
@@ -63,7 +66,8 @@ static inline struct proc *myproc(void) {
 // The layout of the context matches the layout of the stack in swtch.S
 // at the "Switch stacks" comment. Switch doesn't save eip explicitly,
 // but it is on the stack and allocproc() manipulates it.
-struct context {
+struct context
+{
   uint64_t r15;
   uint64_t r14;
   uint64_t r13;
@@ -74,20 +78,30 @@ struct context {
   uint64_t rip;
 };
 
-enum procstate { UNUSED, EMBRYO, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
+enum procstate
+{
+  UNUSED,
+  EMBRYO,
+  SLEEPING,
+  RUNNABLE,
+  RUNNING,
+  ZOMBIE
+};
 
 // Per-process state
-struct proc {
-  struct vspace vspace;        // Virtual address space descriptor
-  char* kstack;                // Kernel stack
-  enum procstate state;        // Process state
-  int pid;                     // Process ID
-  struct proc *parent;         // Parent process
-  struct trap_frame *tf;       // Trap frame for current syscall
-  struct context *context;     // swtch() here to run process
-  void *chan;                  // If non-zero, sleeping on chan
-  int killed;                  // If non-zero, have been killed
-  char name[16];               // Process name (debugging)
+struct proc
+{
+  struct vspace vspace;      // Virtual address space descriptor
+  char *kstack;              // Kernel stack
+  enum procstate state;      // Process state
+  int pid;                   // Process ID
+  struct proc *parent;       // Parent process
+  struct trap_frame *tf;     // Trap frame for current syscall
+  struct context *context;   // swtch() here to run process
+  void *chan;                // If non-zero, sleeping on chan
+  int killed;                // If non-zero, have been killed
+  char name[16];             // Process name (debugging)
+  struct finfo *fds[NOFILE]; // File Descriptor Array
 };
 
 // Process memory is laid out contiguously, low addresses first:

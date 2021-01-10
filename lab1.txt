@@ -1,0 +1,38 @@
+1.
+line#22 prints the cpu information,
+line#23 prints the physical mempry table.
+
+2.
+The memory address of main is: 0xffffffff801034ae
+no? (GDB even don't know the physical address?)
+
+3.
+xk maps kernel and user-application into the same address space because this
+makes kernel's system call code directly refer to user memory.
+
+4.
+User malloc just malloc the memory needed for user process;
+xk kernel malloc malloc the whole 4096-byte pages at a time, for user processes,
+kernel stacks, page tables, and pipe buffers.
+
+User printf prints to some given fd;
+xk kernel printf prints to console.
+
+5.
+line#32 (i.e., calling the trap function) in trap.c
+
+6.
+176 bytes
+according to the struct trap_frame in trap.h, we have 22 uint64_t's,
+which is 1408 bits = 176 bytes.
+
+7.
+trap and syscall are reported.
+
+(gdb) bt
+#0  sys_sleep () at kernel/sysproc.c:54
+#1  0xffffffff80105008 in syscall () at kernel/syscall.c:168
+#2  0xffffffff80105642 in trap (tf=0xffffffff80157f50) at kernel/trap.c:39
+#3  0xffffffff801058ec in alltraps () at kernel/trapasm.S:20
+#4  0x000000000000000d in ?? ()
+#5  0x0000000000000000 in ?? ()
