@@ -16,10 +16,37 @@
 #include <spinlock.h>
 #include <stat.h>
 
+/*
+ * arg0: int [file descriptor]
+ *
+ * duplicate the file descriptor arg0, must use the smallest unused file descriptor
+ * returns a new file descriptor of the duplicated file, -1 otherwise
+ *
+ * dup is generally used by the shell to configure stdin/stdout between
+ * two programs connected by a pipe (lab 2).  For example, "ls | more"
+ * creates two programs, ls and more, where the stdout of ls is sent
+ * as the stdin of more.  The parent (shell) first creates a pipe
+ * creating two new open file descriptors, and then create the two children.
+ * Child processes inherit file descriptors, so each child process can
+ * use dup to install each end of the pipe as stdin or stdout, and then
+ * close the pipe.
+ *
+ * Error conditions:
+ * arg0 is not an open file descriptor
+ * there is no available file descriptor
+ */
 int sys_dup(void)
 {
   // LAB1
-  return -1;
+  int fd;
+
+  // extract arg
+  if (argstr(0, &fd) < 0)
+  {
+    return -1;
+  }
+
+  return file_dup(fd);
 }
 
 int sys_read(void)

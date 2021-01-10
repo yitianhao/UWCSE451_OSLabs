@@ -52,3 +52,8 @@ int file_open(char *path, int mode);
  * close the file with given fd.
  * */
 int file_close(int fd);
+
+/**
+ * duplicate the file with given fd.
+ * */
+int file_dup(int fd);

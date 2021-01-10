@@ -19,6 +19,10 @@ struct
   struct finfo finfo[NFILE];
 } ftable;
 
+// return the smallest fd available for the current process,
+// if there is no available fd, return -1.
+int fd_available();
+
 int file_open(char *path, int mode)
 {
   // get the inode pointer of this file
@@ -32,20 +36,11 @@ int file_open(char *path, int mode)
   struct proc *process = myproc();
 
   // find the smallest fd available for the current process
-  int fd;
-  for (fd = 0; fd < NOFILE; fd++)
-  {
-    if (process->fds[fd] == NULL)
-    {
-      break;
-    }
-  }
+  int fd = fd_available();
 
   // there is no available file descriptor
-  if (fd == NOFILE)
-  {
+  if (fd == -1)
     return -1;
-  }
 
   // find the finto struct with the existing ip (another process can also refer to it)
   // OR smallest index available in the global ftable,
@@ -104,4 +99,45 @@ int file_close(int fd)
   }
 
   return 0;
+}
+
+int file_dup(int fd)
+{
+  // get the current process
+  struct proc *process = myproc();
+
+  // not an open fd
+  struct finfo *file = process->fds[fd];
+  if (file == NULL)
+    return -1;
+
+  // get new fd, ready for duplicate
+  int new_fd = fd_available();
+  if (new_fd == -1)
+    return -1;
+
+  // make duplicate
+  file->ref_ct++;
+  process->fds[new_fd] = file;
+
+  return new_fd;
+}
+
+int fd_available()
+{
+  int fd;
+  for (fd = 0; fd < NOFILE; fd++)
+  {
+    if (myproc()->fds[fd] == NULL)
+    {
+      break;
+    }
+  }
+
+  if (fd == NOFILE)
+  {
+    return -1;
+  }
+
+  return fd;
 }

@@ -51,9 +51,9 @@ int main()
   // while (1);
 
   testopen();
-  // testinvalidargs();
-  // smallfilereadtest();
-  // duptest();
+  testinvalidargs();
+  smallfilereadtest();
+  duptest();
   nofilestest();
 
   printf(stdout, "lab1 tests passed!\n");
