@@ -6,23 +6,26 @@
 #include <user.h>
 
 // Will print an error message and loop
-#define error(msg, ...)                                                        \
-  do {                                                                         \
-    printf(stdout, "ERROR (line %d): ", __LINE__);                             \
-    printf(stdout, msg, ##__VA_ARGS__);                                        \
-    printf(stdout, "\n");                                                      \
-    while (1)                                                                  \
-      ;                                                                        \
+#define error(msg, ...)                            \
+  do                                               \
+  {                                                \
+    printf(stdout, "ERROR (line %d): ", __LINE__); \
+    printf(stdout, msg, ##__VA_ARGS__);            \
+    printf(stdout, "\n");                          \
+    while (1)                                      \
+      ;                                            \
   } while (0)
 
 // After error functionality is tested, this is just a convenience
-#define assert(a)                                                              \
-  do {                                                                         \
-    if (!(a)) {                                                                \
-      printf(stdout, "Assertion failed (line %d): %s\n", __LINE__, #a);        \
-      while (1)                                                                \
-        ;                                                                      \
-    }                                                                          \
+#define assert(a)                                                       \
+  do                                                                    \
+  {                                                                     \
+    if (!(a))                                                           \
+    {                                                                   \
+      printf(stdout, "Assertion failed (line %d): %s\n", __LINE__, #a); \
+      while (1)                                                         \
+        ;                                                               \
+    }                                                                   \
   } while (0)
 
 int stdout = 1;
@@ -33,17 +36,19 @@ void smallfilereadtest(void);
 void duptest(void);
 void nofilestest(void);
 
-int main() {
+int main()
+{
 
-  // if(open("console", O_RDWR) < 0){
+  // if (open("console", O_RDWR) < 0)
+  // {
   //   return -1;
   // }
-  // dup(0);     // stdout
-  // dup(0);     // stderr
-  
+  // dup(0); // stdout
+  // dup(0); // stderr
+
   printf(stdout, "hello world\n");
 
-  while (1);
+  // while (1);
 
   testopen();
   testinvalidargs();
@@ -57,7 +62,8 @@ int main() {
   return 0;
 }
 
-void testopen(void) {
+void testopen(void)
+{
   int fd, fd2;
 
   // test invalid open arguments.
@@ -85,14 +91,13 @@ void testopen(void) {
     error("opening same file results with same file descriptor");
 
   printf(stdout, "passed opening same file twice.\n");
-
 }
 
-void testinvalidargs(void) {
+void testinvalidargs(void)
+{
   int fd, i;
   char buf[11];
   struct stat st;
-
 
   // read
   if (read(15, buf, 11) != -1)
@@ -130,12 +135,14 @@ void testinvalidargs(void) {
   if (fstat(15, &st) != -1)
     error("tried to fstat on a non existent file descriptor");
 
-  if (fstat(stdout, &st) != 0) error("couldn't fstat on stdout");
+  if (fstat(stdout, &st) != 0)
+    error("couldn't fstat on stdout");
 
   assert(st.type == T_DEV);
   assert(st.size == 0);
 
-  if (stat("/small.txt", &st) != 0) error("couldn't stat on '/small.txt'");
+  if (stat("/small.txt", &st) != 0)
+    error("couldn't stat on '/small.txt'");
 
   assert(st.type == T_FILE);
   assert(st.size == 26);
@@ -158,7 +165,8 @@ void testinvalidargs(void) {
   printf(stdout, "passed argument checking for close\n");
 }
 
-void smallfilereadtest(void) {
+void smallfilereadtest(void)
+{
   int fd, i;
   char buf[11];
 
@@ -212,7 +220,8 @@ void smallfilereadtest(void) {
   printf(stdout, "small file test ok\n");
 }
 
-void duptest(void) {
+void duptest(void)
+{
   int fd1, fd2, stdout_cpy;
   char buf[100];
 
@@ -275,14 +284,16 @@ void duptest(void) {
   printf(stdout, "dup test ok\n");
 }
 
-void nofilestest() {
+void nofilestest()
+{
   int fd, tmpfd;
 
   printf(stdout, "nofiles test\n");
   fd = open("/small.txt", O_RDONLY);
   assert(fd != -1);
 
-  for (tmpfd = fd + 1; tmpfd < NOFILE; tmpfd++) {
+  for (tmpfd = fd + 1; tmpfd < NOFILE; tmpfd++)
+  {
     int newfd = open("/small.txt", O_RDONLY);
     if (newfd != tmpfd)
       error("returned fd from open was not the smallest free fd, was '%d'",
@@ -297,11 +308,13 @@ void nofilestest() {
 
   // Opening should work once there is a fd available
   int fd2 = open("/small.txt", O_RDONLY);
-  if (fd2 == -1) error("unable to open file after an fd is available");
+  if (fd2 == -1)
+    error("unable to open file after an fd is available");
 
   assert(fd2 == NOFILE - 1);
 
-  for (tmpfd = fd; tmpfd < NOFILE; tmpfd++) {
+  for (tmpfd = fd; tmpfd < NOFILE; tmpfd++)
+  {
     assert(close(tmpfd) == 0);
   }
 

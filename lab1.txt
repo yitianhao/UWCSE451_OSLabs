@@ -17,3 +17,22 @@ kernel stacks, page tables, and pipe buffers.
 
 User printf prints to some given fd;
 xk kernel printf prints to console.
+
+5.
+line#32 (i.e., calling the trap function) in trap.c
+
+6.
+176 bytes
+according to the struct trap_frame in trap.h, we have 22 uint64_t's,
+which is 1408 bits = 176 bytes.
+
+7.
+trap and syscall are reported.
+
+(gdb) bt
+#0  sys_sleep () at kernel/sysproc.c:54
+#1  0xffffffff80105008 in syscall () at kernel/syscall.c:168
+#2  0xffffffff80105642 in trap (tf=0xffffffff80157f50) at kernel/trap.c:39
+#3  0xffffffff801058ec in alltraps () at kernel/trapasm.S:20
+#4  0x000000000000000d in ?? ()
+#5  0x0000000000000000 in ?? ()

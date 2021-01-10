@@ -4,7 +4,8 @@
 #include <sleeplock.h>
 
 // in-memory copy of an inode
-struct inode {
+struct inode
+{
   uint dev;  // Device number
   uint inum; // Inode number
   int ref;   // Reference count
@@ -18,7 +19,8 @@ struct inode {
 };
 
 // table mapping device ID (devid) to device functions
-struct devsw {
+struct devsw
+{
   int (*read)(struct inode *, char *, int);
   int (*write)(struct inode *, char *, int);
 };
@@ -26,6 +28,19 @@ struct devsw {
 extern struct devsw devsw[];
 
 // Device ids
-enum {
+enum
+{
   CONSOLE = 1,
 };
+
+// File info struct:
+// ref: https://courses.cs.washington.edu/courses/cse451/21wi/sections/21wi_section_1.pdf page 7
+struct finfo
+{
+  int ref_ct;
+  struct inode *ip;
+  int offset;
+  int access_permi;
+};
+
+int file_open(char *path, int mode);
