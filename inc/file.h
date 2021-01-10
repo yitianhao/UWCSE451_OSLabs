@@ -43,4 +43,12 @@ struct finfo
   int access_permi;
 };
 
+/**
+ * open the existing file with the given path and access mode.
+ * */
 int file_open(char *path, int mode);
+
+/**
+ * close the file with given fd.
+ * */
+int file_close(int fd);

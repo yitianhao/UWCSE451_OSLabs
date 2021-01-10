@@ -54,7 +54,15 @@ int sys_write(void)
 int sys_close(void)
 {
   // LAB1
-  return -1;
+  int fd;
+
+  // extract arg
+  if (argstr(0, &fd) < 0)
+  {
+    return -1;
+  }
+
+  return file_close(fd);
 }
 
 int sys_fstat(void)
