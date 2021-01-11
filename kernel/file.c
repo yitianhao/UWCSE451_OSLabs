@@ -138,6 +138,9 @@ int file_read(int fd, char* dst, uint n) {
   // get curr offset
   uint offset = file->offset;
   int read = concurrent_readi(ip, dst, offset, n);
+  if (read == -1) {
+    return -1;
+  }
   file->offset = file->offset + read;
   return read;
 }
@@ -156,6 +159,9 @@ int file_write(int fd, char* src, uint n) {
   // get curr offset
   uint offset = file->offset;
   int written = concurrent_writei(ip, src, offset, n);
+  if (written == -1) {
+    return -1;
+  }
   file->offset = file->offset + written;
   return written;
 }
