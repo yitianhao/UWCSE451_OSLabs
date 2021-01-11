@@ -4,6 +4,7 @@
 
 #include <cdefs.h>
 #include <defs.h>
+#include <fcntl.h>
 #include <file.h>
 #include <fs.h>
 #include <param.h>
@@ -128,7 +129,7 @@ int file_read(int fd, char* dst, uint n) {
   struct proc *process = myproc();
 
   struct finfo *file = process->fds[fd];
-  if (file == NULL) {
+  if (file == NULL || (file->access_permi != O_RDONLY && file->access_permi != O_RDWR)) {
     return -1;
   }
 
@@ -146,7 +147,7 @@ int file_write(int fd, char* src, uint n) {
   struct proc *process = myproc();
 
   struct finfo *file = process->fds[fd];
-  if (file == NULL) {
+  if (file == NULL || (file->access_permi != O_WRONLY && file->access_permi != O_RDWR)) {
     return -1;
   }
   
