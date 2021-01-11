@@ -39,12 +39,12 @@ void nofilestest(void);
 int main()
 {
 
-  // if (open("console", O_RDWR) < 0)
-  // {
-  //   return -1;
-  // }
-  // dup(0); // stdout
-  // dup(0); // stderr
+  if (open("console", O_RDWR) < 0)
+  {
+    return -1;
+  }
+  dup(0); // stdout
+  dup(0); // stderr
 
   printf(stdout, "hello world\n");
 
@@ -104,6 +104,7 @@ void testinvalidargs(void)
 
   fd = open("console", O_WRONLY);
   assert(fd != -1);
+  printf(stdout, "can open console\n");
 
   if (read(fd, buf, 10) != -1)
     // NOTE: If the test hangs here it's because you're trying to read from
