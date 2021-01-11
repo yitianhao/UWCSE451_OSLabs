@@ -41,7 +41,7 @@ int sys_dup(void)
   int fd;
 
   // extract arg
-  if (argstr(0, &fd) < 0)
+  if (argint(0, &fd) < 0 || fd < 0 || fd >= NOFILE)
   {
     return -1;
   }
@@ -49,24 +49,80 @@ int sys_dup(void)
   return file_dup(fd);
 }
 
+/*
+ * arg0: int [file descriptor]
+ * arg1: char * [buffer to write read bytes to]
+ * arg2: int [number of bytes to read]
+ *
+ * reads up to arg2 bytes from the current position of the file descriptor 
+ * arg0 and places those bytes into arg1. The current position of the
+ * file descriptor is updated by that number of bytes.
+ *
+ * returns number of bytes read, or -1 if there was an error.
+ *
+ * If there are insufficient available bytes to complete the request,
+ * reads as many as possible before returning with that number of bytes. 
+ *
+ * Fewer than arg2 bytes can be read in various conditions:
+ * If the current position + arg2 is beyond the end of the file.
+ * If this is a pipe or console device and fewer than arg2 bytes are available 
+ * If this is a pipe and the other end of the pipe has been closed.
+ *
+ * Error conditions:
+ * arg0 is not a file descriptor open for read 
+ * some address between [arg1,arg1+arg2-1] is invalid
+ * arg2 is not positive
+ */
 int sys_read(void)
 {
-  // LAB1
-  return -1;
+  int fd;
+  int n;
+  char* buff;
+  if (argint(0, &fd) < 0 || fd < 0 || fd >= NOFILE || argint(2, &n) < 0|| n < 0 || argptr(1, &buff, n) < 0) {
+    return -1;
+  }
+  return file_read(fd, buff, (uint) n);
 }
+
+/*
+ * arg0: int [file descriptor]
+ * arg1: char * [buffer of bytes to write to the given fd]
+ * arg2: int [number of bytes to write]
+ *
+ * writes up to arg2 bytes from arg1 to the current position of 
+ * the file descriptor. The current position of the file descriptor 
+ * is updated by that number of bytes.
+ *
+ * returns number of bytes written, or -1 if there was an error.
+ *
+ * If the full write cannot be completed, writes as many as possible 
+ * before returning with that number of bytes. For example, if the disk 
+ * runs out of space.
+ *
+ * If writing to a pipe and the other end of the pipe is closed,
+ * will return 0 rather than an error.
+ *
+ * Error conditions:
+ * arg0 is not a file descriptor open for write
+ * some address between [arg1,arg1+arg2-1] is invalid
+ * arg2 is not positive
+ *
+ * note that for lab1, the file system does not support writing past 
+ * the end of the file. Normally this would extend the size of the file
+ * allowing the write to complete, to the maximum extent possible 
+ * provided there is space on the disk.
+ */
 
 int sys_write(void)
 {
-  // you have to change the code in this function.
-  // Currently it supports printing one character to the screen.
-
+  int fd;
   int n;
-  char *p;
+  char *src;
 
-  if (argint(2, &n) < 0 || argptr(1, &p, n) < 0)
+  if (argint(0, &fd) < 0 || fd < 0 || fd >= NOFILE || argint(2, &n) < 0 || n < 0 || argptr(1, &src, n) < 0) {
     return -1;
-  uartputc((int)(*p));
-  return 1;
+  }
+  return file_write(fd, src, (uint) n);
 }
 
 /*
@@ -84,7 +140,7 @@ int sys_close(void)
   int fd;
 
   // extract arg
-  if (argstr(0, &fd) < 0)
+  if (argint(0, &fd) < 0 || fd < 0 || fd >= NOFILE)
   {
     return -1;
   }
@@ -92,10 +148,28 @@ int sys_close(void)
   return file_close(fd);
 }
 
+/*
+ * arg0: int [file descriptor]
+ * arg1: struct stat *
+ *
+ * populates the struct stat pointer passed in to the function
+ *
+ * returns 0 on success, -1 otherwise
+ * Error conditions: 
+ * if arg0 is not a valid file descriptor
+ * if any address within the range [arg1, arg1+sizeof(struct stat)] is invalid
+ */
+
 int sys_fstat(void)
 {
-  // LAB1
-  return -1;
+  int fd;
+  struct stat *ptr;
+
+  if (argint(0, &fd) < 0 || fd < 0 || fd >= NOFILE || argptr(1, (char**) &ptr, sizeof(struct stat)) < 0) {
+    return -1;
+  }
+  
+  return file_stat(fd, ptr);
 }
 
 /*

@@ -123,6 +123,57 @@ int file_dup(int fd)
   return new_fd;
 }
 
+int file_read(int fd, char* dst, uint n) {
+  // get the curr process
+  struct proc *process = myproc();
+
+  struct finfo *file = process->fds[fd];
+  if (file == NULL) {
+    return -1;
+  }
+
+  // get the file inode
+  struct inode *ip = file->ip;
+  // get curr offset
+  uint offset = file->offset;
+  int read = concurrent_readi(ip, dst, offset, n);
+  file->offset = file->offset + read;
+  return read;
+}
+
+int file_write(int fd, char* src, uint n) {
+  // get the curr process
+  struct proc *process = myproc();
+
+  struct finfo *file = process->fds[fd];
+  if (file == NULL) {
+    return -1;
+  }
+  
+  // get the file inode
+  struct inode *ip = file->ip;
+  // get curr offset
+  uint offset = file->offset;
+  int written = concurrent_writei(ip, src, offset, n);
+  file->offset = file->offset + written;
+  return written;
+}
+
+int file_stat(int fd, struct stat *st) {
+    // get the curr process
+  struct proc *process = myproc();
+
+  struct finfo *file = process->fds[fd];
+  if (file == NULL) {
+    return -1;
+  }
+  
+  // get the file inode
+  struct inode *ip = file->ip;
+  concurrent_stati(ip, st);
+  return 0;
+}
+
 int fd_available()
 {
   int fd;

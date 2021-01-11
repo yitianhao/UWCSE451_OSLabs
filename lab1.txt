@@ -4,16 +4,19 @@ line#23 prints the physical mempry table.
 
 2.
 The memory address of main is: 0xffffffff801034ae
-no? (GDB even don't know the physical address?)
+No. GDB does not run in kernel mode. It has no access to actual physical memory.
 
 3.
 xk maps kernel and user-application into the same address space because this
 makes kernel's system call code directly refer to user memory.
 
 4.
-User malloc just malloc the memory needed for user process;
+User malloc just malloc the memory needed for user process. The returned value is
+user virtual memory address (which does not have a static mapping to physical address). 
+The block of malloced memory may actually take a few pages. 
 xk kernel malloc malloc the whole 4096-byte pages at a time, for user processes,
-kernel stacks, page tables, and pipe buffers.
+kernel stacks, page tables, and pipe buffers. The address returned is kernal virtual address that has
+a static mapping to a pyhsical address.
 
 User printf prints to some given fd;
 xk kernel printf prints to console.

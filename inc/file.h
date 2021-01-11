@@ -37,9 +37,9 @@ enum
 // ref: https://courses.cs.washington.edu/courses/cse451/21wi/sections/21wi_section_1.pdf page 7
 struct finfo
 {
-  int ref_ct;
+  uint ref_ct; // ref_ct cannot be negative
   struct inode *ip;
-  int offset;
+  uint offset;  // offset cannot be negative
   int access_permi;
 };
 
@@ -57,3 +57,51 @@ int file_close(int fd);
  * duplicate the file with given fd.
  * */
 int file_dup(int fd);
+
+/**
+ * Read n bytes from the file with fd.
+ * Store data read at the buffer dst
+ * Param:
+ * fd (int) : file descriptor
+ * dst(char*): place to store all data read
+ * n (uint) : number of bytes to be read
+ * 
+ * Return:
+ *  - the number of bytes read.
+ *  - -1 if there is any error
+ * 
+ * Effect:
+ *  - offest of the file will be updated
+ * */
+int file_read(int fd, char* dst, uint n);
+
+/**
+ * Write n bytes from src to the file with fd.
+ * Param:
+ * fd (int) : file descriptor
+ * src (char*) : data to be written
+ * n (uint) : number of bytes to be written
+ * 
+ * Return:
+ *  - the number of bytes written
+ *  - -1 if there is any error
+ * 
+ * Effect:
+ *  - offset of the file fd will be updated
+ * */
+int file_write(int fd, char* src, uint n);
+
+/**
+ * Populate the struct st with info associates to fd
+ * Param:
+ * fd (int): file descriptor
+ * st (struct stat*): file stat struct to be populated
+ * 
+ * Return:
+ * - 0 if success
+ * - -1 if there is an error
+ * 
+ * Effect:
+ *  - st will be populated
+ * */
+int file_stat(int fd, struct stat *st);
