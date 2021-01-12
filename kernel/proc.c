@@ -85,7 +85,7 @@ found:
   p->context = (struct context *)sp;
   memset(p->context, 0, sizeof *p->context);
   p->context->rip = (uint64_t)forkret;
-  memset(p->fds,0, sizeof *p->fds);
+  memset(p->fds,0, sizeof p->fds);
 
   return p;
 }
