@@ -15,6 +15,8 @@
 struct devsw devsw[NDEV];
 
 // file table
+// Q: we don't need to memset this global file table?
+//    didn't find memset in the given global process table
 struct
 {
   struct finfo finfo[NFILE];
@@ -22,16 +24,14 @@ struct
 
 // return the smallest fd available for the current process,
 // if there is no available fd, return -1.
-int fd_available();
+static int fd_available();
 
 int file_open(char *path, int mode)
 {
   // get the inode pointer of this file
   struct inode *ip;
   if ((ip = namei(path)) == 0)
-  {
     return -1;
-  }
 
   // get the current process
   struct proc *process = myproc();
@@ -43,8 +43,7 @@ int file_open(char *path, int mode)
   if (fd == -1)
     return -1;
 
-  // find the finto struct with the existing ip (another process can also refer to it)
-  // OR smallest index available in the global ftable,
+  // find the finto struct with the smallest index available in the global ftable,
   // and make the connection
   struct finfo *file;
   for (file = ftable.finfo; file < &ftable.finfo[NFILE]; file++)
@@ -54,7 +53,7 @@ int file_open(char *path, int mode)
       file->access_permi = mode;
       file->ip = ip;
       file->ref_ct++;
-      // what is offset???
+      file->offset = 0;
       process->fds[fd] = file;
       break;
     }
@@ -83,6 +82,7 @@ int file_close(int fd)
     irelease(file->ip);
     file->access_permi = 0;
     file->ip = 0;
+    file->offset = 0;
   }
 
   return 0;
