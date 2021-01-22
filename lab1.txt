@@ -12,8 +12,8 @@ makes kernel's system call code directly refer to user memory.
 
 4.
 User malloc just malloc the memory needed for user process. The returned value is
-user virtual memory address (which does not have a static mapping to physical address). 
-The block of malloced memory may actually take a few pages. 
+user virtual memory address (which does not have a static mapping to physical address).
+The block of malloced memory may actually take a few pages.
 xk kernel malloc malloc the whole 4096-byte pages at a time, for user processes,
 kernel stacks, page tables, and pipe buffers. The address returned is kernal virtual address that has
 a static mapping to a pyhsical address.
@@ -39,3 +39,7 @@ trap and syscall are reported.
 #3  0xffffffff801058ec in alltraps () at kernel/trapasm.S:20
 #4  0x000000000000000d in ?? ()
 #5  0x0000000000000000 in ?? ()
+
+8.
+Kelvin Fang: 10h
+Yitian Hao: 16h

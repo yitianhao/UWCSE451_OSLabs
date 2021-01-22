@@ -39,22 +39,62 @@ struct finfo
 {
   uint ref_ct; // ref_ct cannot be negative
   struct inode *ip;
-  uint offset;  // offset cannot be negative
+  uint offset; // offset cannot be negative
   int access_permi;
 };
 
 /**
- * open the existing file with the given path and access mode.
+ * Open the file with the given path, with the given mode.
+ *
+ * Param:
+ * path (char*) : the path to file
+ * mode (int): the permission mode for this file
+ *
+ * Return:
+ *  - the file discriptor
+ *  - -1 if there is any error
+ *
+ * Effect:
+ *  - open the file, ready to be read.
+ *
+ * Note:
+ * Open the same file (i.e., the file with the same path) will result in having
+ * a new fd and a new "File Info Struct". This is our design choice becauce it's
+ * possible for us to open the same file twice for different purpose (e.g., the
+ * offsets could be different)
  * */
 int file_open(char *path, int mode);
 
 /**
- * close the file with given fd.
+ * Closes the file with given fd.
+ *
+ * Param:
+ * fd (int) : file descriptor
+ *
+ * Return:
+ *  - 0 if close successfully
+ *  - -1 if there is any error
+ *
+ * Effect:
+ * Close the current connection between fd and the global ftable, make this fd
+ * fd open to new connections. If there is no other processes refering to that
+ * inode in the global ftable, clean up.
  * */
 int file_close(int fd);
 
 /**
- * duplicate the file with given fd.
+ * Duplicate the fd.
+ *
+ * Param:
+ * fd (int) : file descriptor
+ *
+ * Return:
+ *  -new file descriptor
+ *  - -1 if there is any error
+ *
+ * Effect:
+ * Find what is referenced by the current fd, make another reference to it in the
+ * current process, using a new file descriptor.
  * */
 int file_dup(int fd);
 
@@ -65,15 +105,15 @@ int file_dup(int fd);
  * fd (int) : file descriptor
  * dst(char*): place to store all data read
  * n (uint) : number of bytes to be read
- * 
+ *
  * Return:
  *  - the number of bytes read.
  *  - -1 if there is any error
- * 
+ *
  * Effect:
  *  - offest of the file will be updated
  * */
-int file_read(int fd, char* dst, uint n);
+int file_read(int fd, char *dst, uint n);
 
 /**
  * Write n bytes from src to the file with fd.
@@ -81,26 +121,26 @@ int file_read(int fd, char* dst, uint n);
  * fd (int) : file descriptor
  * src (char*) : data to be written
  * n (uint) : number of bytes to be written
- * 
+ *
  * Return:
  *  - the number of bytes written
  *  - -1 if there is any error
- * 
+ *
  * Effect:
  *  - offset of the file fd will be updated
  * */
-int file_write(int fd, char* src, uint n);
+int file_write(int fd, char *src, uint n);
 
 /**
  * Populate the struct st with info associates to fd
  * Param:
  * fd (int): file descriptor
  * st (struct stat*): file stat struct to be populated
- * 
+ *
  * Return:
  * - 0 if success
  * - -1 if there is an error
- * 
+ *
  * Effect:
  *  - st will be populated
  * */
