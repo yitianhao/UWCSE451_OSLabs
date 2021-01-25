@@ -128,8 +128,39 @@ void userinit(void)
 // Caller must set state of returned proc to RUNNABLE.
 int fork(void)
 {
-  // your code here
-  return 0;
+  // 1. create a new entry in the process table
+  struct proc *child = allocproc();
+  if (child == 0)
+    return -1;
+  struct proc *p = myproc();
+  child->parent = p;
+
+  // 2. duplicate user memory
+  if (vspaceinit(&child->vspace) != 0)
+    return -1;
+  if (vspacecopy(&child->vspace, &p->vspace) != 0)
+    return -1;
+
+  // 3. duplicate trap frame, using memmove ok??
+  memmove(child->tf, p->tf, sizeof(*p->tf));
+  child->tf->rax = 0; // return for child process
+
+  // 4. duplicate all the open files
+  for (int fd = 0; fd < NOFILE; fd++)
+  {
+    if (p->fds[fd] != NULL)
+    {
+      child->fds[fd] = &(*p->fds[fd]); // off by one bug
+      p->fds[fd]->ref_ct += 1;
+    }
+  }
+
+  // 5. change child's state
+  acquire(&ptable.lock);
+  child->state = RUNNABLE;
+  release(&ptable.lock);
+
+  return child->pid;
 }
 
 // Exit the current process.  Does not return.
