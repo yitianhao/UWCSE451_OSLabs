@@ -20,15 +20,17 @@ exec: it initializes an existing process' virtual address space, registers and e
 ## In-depth Analysis and Implementation
 
 ### Part 1: File Interface Synchronization:
-Most file operations need to access to the disk. We believe that a sleep lock for most functions would be a good choice, because disk access is slow and time consuming. We do not want to waste CPU clock cycles just to wait for disk access.
-
-For open/read/write/stat we choose to use sleep lock (i.e. concurrent_writei, concurrent_readi, etc), these are functions that would need to access the disk.
-
-For dup/close we choose to use a spinlock. They only operate on data stored in memory (e.g. the file info struct). There would not be time consuming waiting needed.
+For global file table `ftable` we add a `spinlock` for it. We made this decision similar to `ptable`.
+- Since this is a single core system, it's enough to only lock the entire `ftable` or `ptable`, becuase
+only one of the `finfo struct` or `proc struct` can run at the single time.
+- We choose `spinlock` not `sleeplock` because there is no interrupts involved in this process, so it
+is okay for interrupts to be disabled.
+- For codes we modified, we add some locks when we writing data to some `finfo struct` in `ftable`.
+The philosophy is: to keep the critical section as small as possible.
 
 ### Part 2: Procs
 
-#### fork: 
+#### fork:
 - A new entry in the process table must be created via `allocproc`
 - User memory must be duplicated via `vspacecopy`
 - The trapframe must be duplicated in the new process
@@ -37,7 +39,7 @@ For dup/close we choose to use a spinlock. They only operate on data stored in m
     - increment `ref_ct` in file info struct of all affected files.
 - Set the state of the new process to be `RUNNABLE`
 - Return 0 in the child, while returning the child's pid in the parent
-    - This can be done by calling `myproc` after `vspacecopy` and check if current process have the same pid as the pid returned by `allocproc`. If they are the same, we are in child proc.
+    - This can be done by changing child process's `rax` in its trap frame.
 
 #### wait:
  - while non of its children is in `ZOMBIE` state, i.e. all `RUNNABLE` or `WAITING` or `RUNNING`...

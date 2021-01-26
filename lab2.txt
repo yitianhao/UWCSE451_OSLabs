@@ -1,0 +1,14 @@
+Question #1
+Describe the relationship between scheduler, sched, swtch in kernel/proc.c.
+
+- scheduler is the main function running, it pick a process to run by looping through ptable.
+When a process has been chosen, it make context switch by calling swtch to tabke control of the cpu.
+- sched will been called when a process want to relinquish the control back to scheduler.
+
+Question #2
+Describe why the child process is able to return to user-level application where fork is called.
+
+Because when we call allocproc to allocate virtual address space for the child process,
+it has set the rip (instruction pointer register) of its child process to retfork, which
+will be the very first scheduling for the child process by scheduler. By calling retfork,
+child process can be return to user-level application.
