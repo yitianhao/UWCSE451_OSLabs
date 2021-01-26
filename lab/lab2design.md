@@ -49,7 +49,7 @@ For dup/close we choose to use a spinlock. They only operate on data stored in m
 #### exit:
  - call `vspacefree` to free the vspace used by the process
  - set proc state to `ZOMBIE`
- - if `parent` no longer exit, set its parent to be the root proc
+ - if `parent` no longer exists, set its parent to be the root proc
  - call `wakeup` on its parent proc
 
 #### pipe:
