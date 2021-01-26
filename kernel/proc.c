@@ -131,6 +131,7 @@ int fork(void)
   // 1. create a new entry in the process table
   struct proc *p = myproc();
   struct proc *child = allocproc();
+  acquire(&ptable.lock);
   if (child == 0)
     return -1;
   child->parent = p;
@@ -143,8 +144,6 @@ int fork(void)
 
   // 3. duplicate trap frame
   memmove(child->tf, p->tf, sizeof(*p->tf));
-  child->tf->rax = 0; // return for child process
-  p->tf->rax = child->pid;
 
   // 4. duplicate all the open files
   for (int fd = 0; fd < NOFILE; fd++)
@@ -157,11 +156,11 @@ int fork(void)
   }
 
   // 5. change child's state
-  acquire(&ptable.lock);
+  
   child->state = RUNNABLE;
+  child->tf->rax = 0; // return for child process
   release(&ptable.lock);
-
-  return myproc()->tf->rax;
+  return child->pid;
 }
 
 // Exit the current process.  Does not return.
@@ -170,21 +169,15 @@ int fork(void)
 void exit(void)
 {
   struct proc* p = myproc();
-
-  // 2. find root proc
-  struct proc* root = p;
-  while (root->parent != NULL) {
-    root = root->parent;
-  }
+  acquire(&ptable.lock);
 
   // 3. set all its running children's parent to root
-  acquire(&ptable.lock);
+  
   for (struct proc* curr = ptable.proc; curr < &ptable.proc[NPROC]; curr++) {
     if (curr->parent->pid == p->pid && curr->state != UNUSED) {
-      curr->parent = root;
+      curr->parent = initproc;
     }
   }
-  release(&ptable.lock);
  
   // 4. close up all opened files
   for (int i = 0; i < NOFILE; i++) {
@@ -198,8 +191,9 @@ void exit(void)
   p->killed = 0;
   p->chan = 0;
   // 5. wake its parent up
-  wakeup(p->parent);
-  // Someway to terminate/halt the program, e.g. set its rip to smth
+  wakeup1(p->parent);
+  sched();
+  release(&ptable.lock);
 }
 
 // Wait for a child process to exit and return its pid.
@@ -211,8 +205,8 @@ int wait(void)
   struct proc* p = myproc();
   // Scan through table looking for exited children.
   while (zombie == NULL) {
-    child_count = 0;
     acquire(&ptable.lock);
+    child_count = 0;
     for (struct proc* curr = ptable.proc; curr < &ptable.proc[NPROC]; curr++) {
       if (curr->parent->pid == p->pid && curr->state != UNUSED) {
         child_count++;
@@ -221,17 +215,16 @@ int wait(void)
         }
       }
     }
-    release(&ptable.lock);
     if (child_count == 0) {
       // if no child
+      release(&ptable.lock);
       return -1;
     }
     // if there is some running children
     if (zombie == NULL) {
-      acquire(&ptable.lock);
       sleep(p, &ptable.lock);
-      release(&ptable.lock);
     }
+    release(&ptable.lock);
   }
   // cleanup the child proc
   kfree(zombie->kstack);
