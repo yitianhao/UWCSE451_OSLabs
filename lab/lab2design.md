@@ -51,7 +51,7 @@ The philosophy is: to keep the critical section as small as possible.
 #### exit:
  - call `vspacefree` to free the vspace used by the process
  - set proc state to `ZOMBIE`
- - if `parent` no longer exit, set its parent to be the root proc
+ - if `parent` no longer exists, set its parent to be the root proc
  - call `wakeup` on its parent proc
 
 #### pipe:

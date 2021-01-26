@@ -168,16 +168,76 @@ int fork(void)
 // until its parent calls wait() to find out it exited.
 void exit(void)
 {
-  // your code here
+  struct proc* p = myproc();
+  if (p->state == UNUSED || p->state == ZOMBIE) {
+    return;
+  }
+  
+  // 2. find root proc
+  struct proc* root = p;
+  while (root->parent != NULL) {
+    root = root->parent;
+  }
+
+  acquire(&ptable.lock);
+  // 3. set all its running children's parent to root
+  for (struct proc* curr = ptable.proc; curr < &ptable.proc[NPROC]; curr++) {
+    if (curr->parent->pid == p->pid && curr->state != UNUSED) {
+      curr->parent = curr;
+    }
+  }
+  release(&ptable.lock);
+
+  // 4. set its state to ZOMBIE
+  p->state = ZOMBIE;
+  p->killed = 0;
+  p->chan = 0;
+  
+  // 5. close up all opened files
+  for (int i = 0; i < NOFILE; i++) {
+    if (p->fds[i] != NULL) {
+      file_close(i);
+    }
+  }
+  // 6. wake its parent up
+  wakeup(p->parent);
 }
 
 // Wait for a child process to exit and return its pid.
 // Return -1 if this process has no children.
 int wait(void)
 {
-  // your code here
+  int child_count = 0;
+  int zombie_index = -1;
+  struct proc* p = myproc();
   // Scan through table looking for exited children.
-  return -1;
+  while (zombie_index == -1) {
+    acquire(&ptable.lock);
+    child_count = 0;
+    for (int i = 0; i < NPROC; i++) {
+      if (ptable.proc[i].parent->pid == p->pid) {
+        child_count++;
+        if (ptable.proc[i].state == ZOMBIE) {
+          zombie_index = i;
+        }
+      }
+    }
+    if (child_count == 0) {
+      // if no child
+      return -1;
+    }
+    // if there is some running children
+    if (zombie_index == -1) {
+      sleep(p, &ptable.lock);
+    }
+    release(&ptable.lock);
+  }
+  // cleanup the child proc
+  kfree(ptable.proc[zombie_index].kstack);
+  vspacefree(&(ptable.proc[zombie_index].vspace));
+  int child_pid = ptable.proc[zombie_index].pid;
+  ptable.proc[zombie_index].state = UNUSED;
+  return child_pid;
 }
 
 // Per-CPU process scheduler.
