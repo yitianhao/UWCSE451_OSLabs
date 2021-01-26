@@ -129,10 +129,10 @@ void userinit(void)
 int fork(void)
 {
   // 1. create a new entry in the process table
+  struct proc *p = myproc();
   struct proc *child = allocproc();
   if (child == 0)
     return -1;
-  struct proc *p = myproc();
   child->parent = p;
 
   // 2. duplicate user memory
@@ -144,6 +144,7 @@ int fork(void)
   // 3. duplicate trap frame, using memmove ok??
   memmove(child->tf, p->tf, sizeof(*p->tf));
   child->tf->rax = 0; // return for child process
+  p->tf->rax = child->pid;
 
   // 4. duplicate all the open files
   for (int fd = 0; fd < NOFILE; fd++)
@@ -160,7 +161,7 @@ int fork(void)
   child->state = RUNNABLE;
   release(&ptable.lock);
 
-  return child->pid;
+  return myproc()->tf->rax;
 }
 
 // Exit the current process.  Does not return.
@@ -169,38 +170,36 @@ int fork(void)
 void exit(void)
 {
   struct proc* p = myproc();
-  if (p->state == UNUSED || p->state == ZOMBIE) {
-    return;
-  }
-  
+
   // 2. find root proc
   struct proc* root = p;
   while (root->parent != NULL) {
     root = root->parent;
   }
 
-  acquire(&ptable.lock);
   // 3. set all its running children's parent to root
+  acquire(&ptable.lock);
   for (struct proc* curr = ptable.proc; curr < &ptable.proc[NPROC]; curr++) {
     if (curr->parent->pid == p->pid && curr->state != UNUSED) {
-      curr->parent = curr;
+      curr->parent = root;
     }
   }
   release(&ptable.lock);
-
-  // 4. set its state to ZOMBIE
-  p->state = ZOMBIE;
-  p->killed = 0;
-  p->chan = 0;
-  
-  // 5. close up all opened files
+ 
+  // 4. close up all opened files
   for (int i = 0; i < NOFILE; i++) {
     if (p->fds[i] != NULL) {
       file_close(i);
     }
   }
-  // 6. wake its parent up
+
+  // 6. set its state to ZOMBIE
+  p->state = ZOMBIE;
+  p->killed = 0;
+  p->chan = 0;
+  // 5. wake its parent up
   wakeup(p->parent);
+  // Someway to terminate/halt the program, e.g. set its rip to smth
 }
 
 // Wait for a child process to exit and return its pid.
@@ -208,35 +207,37 @@ void exit(void)
 int wait(void)
 {
   int child_count = 0;
-  int zombie_index = -1;
+  struct proc* zombie = NULL;
   struct proc* p = myproc();
   // Scan through table looking for exited children.
-  while (zombie_index == -1) {
-    acquire(&ptable.lock);
+  while (zombie == NULL) {
     child_count = 0;
-    for (int i = 0; i < NPROC; i++) {
-      if (ptable.proc[i].parent->pid == p->pid) {
+    acquire(&ptable.lock);
+    for (struct proc* curr = ptable.proc; curr < &ptable.proc[NPROC]; curr++) {
+      if (curr->parent->pid == p->pid && curr->state != UNUSED) {
         child_count++;
-        if (ptable.proc[i].state == ZOMBIE) {
-          zombie_index = i;
+        if (curr->state == ZOMBIE) {
+          zombie = curr;
         }
       }
     }
+    release(&ptable.lock);
     if (child_count == 0) {
       // if no child
       return -1;
     }
     // if there is some running children
-    if (zombie_index == -1) {
+    if (zombie == NULL) {
+      acquire(&ptable.lock);
       sleep(p, &ptable.lock);
+      release(&ptable.lock);
     }
-    release(&ptable.lock);
   }
   // cleanup the child proc
-  kfree(ptable.proc[zombie_index].kstack);
-  vspacefree(&(ptable.proc[zombie_index].vspace));
-  int child_pid = ptable.proc[zombie_index].pid;
-  ptable.proc[zombie_index].state = UNUSED;
+  kfree(zombie->kstack);
+  vspacefree(&(zombie->vspace));
+  int child_pid = zombie->pid;
+  zombie->state = UNUSED;
   return child_pid;
 }
 
