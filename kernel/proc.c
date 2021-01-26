@@ -141,7 +141,7 @@ int fork(void)
   if (vspacecopy(&child->vspace, &p->vspace) != 0)
     return -1;
 
-  // 3. duplicate trap frame, using memmove ok??
+  // 3. duplicate trap frame
   memmove(child->tf, p->tf, sizeof(*p->tf));
   child->tf->rax = 0; // return for child process
 
