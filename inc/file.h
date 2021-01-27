@@ -2,6 +2,10 @@
 
 #include <extent.h>
 #include <sleeplock.h>
+#include <mmu.h>
+
+#define PIPE 1
+#define FILE 0
 
 // in-memory copy of an inode
 struct inode
@@ -38,9 +42,23 @@ enum
 struct finfo
 {
   uint ref_ct; // ref_ct cannot be negative
-  struct inode *ip;
+  void* ip;
   uint offset; // offset cannot be negative
   int access_permi;
+  int type; // tell if it is pipe or file
+};
+
+// pipe struct:
+// describe a pipe
+struct pipe
+{
+  size_t size_left;
+  size_t read_off;
+  size_t write_off;
+  size_t read_ref_ct;
+  size_t write_ref_ct;
+  struct spinlock lock;
+  char buff[PAGE_SIZE - 5 * sizeof(size_t) - sizeof(struct spinlock)];
 };
 
 /**
@@ -145,3 +163,22 @@ int file_write(int fd, char *src, uint n);
  *  - st will be populated
  * */
 int file_stat(int fd, struct stat *st);
+
+/**
+ * open up a pipe：one end being read only and the other write only
+ * 
+ * param: res(int*): return pointer
+ * 
+ * Return:
+ * - 0 if success
+ * - -1 on error
+ * 
+ * Effect:
+ * - create 2 file descripter pointing to a single pipe struct
+ * - one being read only and the other write only
+ * 
+ * Must have 2 available file descriptors
+ * Must have enough space to create pipe
+ * Is compatible to read/write/close/dup
+ * */
+int pipe_open(int* res);

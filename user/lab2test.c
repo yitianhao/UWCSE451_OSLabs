@@ -107,7 +107,7 @@ void forktest(void) {
 void pipetest(void) {
   char buf[500];
   int fds[2], pid;
-  int seq, i, n, cc, total;
+  int seq, i, n, cc, total, temp;
 
   printf(1, "pipetest\n");
 
@@ -121,12 +121,12 @@ void pipetest(void) {
     for (n = 0; n < 5; n++) {
       for (i = 0; i < 95; i++)
         buf[i] = seq++;
-      if (write(fds[1], buf, 95) != 95) {
-        error("pipetest: oops 1\n");
+      if ((temp = write(fds[1], buf, 95)) != 95) {
+        error("pipetest: oops 1\n%d\n", temp);
       }
     }
     exit();
-  } else if (pid > 0) {
+  } else if (pid > 0) { 
     close(fds[1]);
     total = 0;
     cc = 1;

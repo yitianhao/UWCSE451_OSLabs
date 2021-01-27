@@ -1,5 +1,6 @@
 #include <cdefs.h>
 #include <defs.h>
+#include <fcntl.h>
 #include <file.h>
 #include <fs.h>
 #include <memlayout.h>
@@ -152,6 +153,16 @@ int fork(void)
     {
       child->fds[fd] = &(*p->fds[fd]); // off by one bug
       p->fds[fd]->ref_ct += 1;
+      if (p->fds[fd]->type == PIPE) {
+        struct pipe* curr_pipe = (struct pipe*) p->fds[fd]->ip;
+        acquire(&curr_pipe->lock);
+        if (p->fds[fd]->access_permi == O_RDONLY) {
+          curr_pipe->read_ref_ct++;
+        } else {
+          curr_pipe->write_ref_ct++;
+        }
+        release(&curr_pipe->lock);
+      }
     }
   }
 
