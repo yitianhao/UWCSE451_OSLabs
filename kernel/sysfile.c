@@ -230,8 +230,13 @@ int sys_open(void)
 
 int sys_exec(void)
 {
-  // LAB2
-  return -1;
+  char* path;
+  char** argv;
+  if (argstr(0, &path) < 0 || argint(1, &argv)) {
+    return -1;
+  }
+  // check validity of each address and string in argv, how to do this???
+  return exec(path, argv);
 }
 
 int sys_pipe(void)
