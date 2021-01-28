@@ -42,17 +42,18 @@ The philosophy is: to keep the critical section as small as possible.
     - This can be done by changing child process's `rax` in its trap frame.
 
 #### wait:
- - while non of its children is in `ZOMBIE` state, i.e. all `RUNNABLE` or `WAITING` or `RUNNING`...
-    - `sleep` on its proc struct
  - Loop trough `ptable` to find the `ZOMBIE` child
- - Clear the child's proc struct from `ptable`
- - return child's pid
+ - While non of its children is in `ZOMBIE` state, i.e. all `RUNNABLE` or `WAITING` or `RUNNING`...
+    - `sleep` on its proc struct
+ - Clear the child's proc struct from `ptable` (i.e., set state to `UNUSED`) and cleanup the child proc
+ - Return child's pid
 
 #### exit:
- - call `vspacefree` to free the vspace used by the process
+ - set all it's children's parent to the root process `initproc`
+ - close up all the files open by the current process
  - set proc state to `ZOMBIE`
- - if `parent` no longer exists, set its parent to be the root proc
  - call `wakeup` on its parent proc
+ - call `sched` to yield the schedular
 
 #### pipe:
 - Bookkeeping:

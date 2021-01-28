@@ -2,8 +2,6 @@
 // File descriptors
 //
 
-// lab2 current design: sleep lock for ftable
-
 #include <cdefs.h>
 #include <defs.h>
 #include <fcntl.h>
@@ -17,8 +15,7 @@
 struct devsw devsw[NDEV];
 
 // file table
-struct
-{
+struct {
   struct spinlock lock;
   struct finfo finfo[NFILE];
 } ftable;
@@ -55,10 +52,8 @@ int file_open(char *path, int mode)
   // find the finto struct with the smallest index available in the global ftable,
   // and make the connection
   struct finfo *file;
-  for (file = ftable.finfo; file < &ftable.finfo[NFILE]; file++)
-  {
-    if (file->ref_ct == 0)
-    {
+  for (file = ftable.finfo; file < &ftable.finfo[NFILE]; file++) {
+    if (file->ref_ct == 0) {
       file->access_permi = mode;
       file->ip = (void*) ip;
       file->ref_ct++;
@@ -76,13 +71,12 @@ int file_open(char *path, int mode)
 int pipe_open(int* res) {
   // get the current process
   struct proc* p = myproc();
-  
+
   // find 2 available fd, lock them up so others would not use them.
   acquire(&ftable.lock);
   int read = fd_available();
   p->fds[read] = (void*) 1;
   int write = fd_available();
-
   if (read == -1 || write == -1) {
     p->fds[read] = NULL;
     release(&ftable.lock);
@@ -105,7 +99,7 @@ int pipe_open(int* res) {
     release(&ftable.lock);
     return -1;
   }
-  
+
   // create the pipe
   struct pipe* new_pipe = (struct pipe*) kalloc();
   if (new_pipe == 0) {
@@ -113,6 +107,7 @@ int pipe_open(int* res) {
     release(&ftable.lock);
     return -1;
   }
+
   // init pipe
   memset(new_pipe, 0, PAGE_SIZE);
   new_pipe->read_off = 0;
@@ -133,7 +128,7 @@ int pipe_open(int* res) {
   fwrite->offset = 0;
   fwrite->ref_ct = 1;
   fwrite->type = PIPE;
-  
+
   p->fds[read] = fread;
   p->fds[write] = fwrite;
   res[0] = read;
@@ -168,9 +163,8 @@ int file_close(int fd)
     }
     release(&curr_pipe->lock);
   }
-  // when no process is using this inode, clean up
-  if (file->ref_ct == 0)
-  {
+  // when no process is using this inode/pipe, clean up
+  if (file->ref_ct == 0) {
     acquire(&ftable.lock);
     if (file->type == FILE) {
       irelease((struct inode*)file->ip);
@@ -208,7 +202,7 @@ int file_dup(int fd)
 
   // make duplicate
   file->ref_ct++;
-  
+
   // if it is a pipe
   if (file->type == PIPE) {
     struct pipe* curr_pipe = (struct pipe*) file->ip;
@@ -250,7 +244,7 @@ int file_read(int fd, char *dst, uint n)
     // get pipe struct first
     struct pipe* curr_pipe = (struct pipe*) file->ip;
     acquire(&curr_pipe->lock);
-    
+
     // check if there is anything to read
     size_t to_read = curr_pipe->write_off - curr_pipe->read_off;
     size_t read = -1;
@@ -287,9 +281,9 @@ int file_read(int fd, char *dst, uint n)
     // cleanups
     data_transfer(curr_pipe->buff + curr_pipe->read_off, dst, read);
     // if the page is full, reset it iff writing end is still opened
-    if (curr_pipe->read_off == curr_pipe->write_off 
-        && curr_pipe->size_left == 0 
-        && curr_pipe->write_ref_ct >0) {
+    if (curr_pipe->read_off == curr_pipe->write_off
+        && curr_pipe->size_left == 0
+        && curr_pipe->write_ref_ct > 0) {
       curr_pipe->read_off = 0;
       curr_pipe->write_off = 0;
       curr_pipe->size_left = sizeof(curr_pipe->buff);
@@ -327,18 +321,19 @@ int file_write(int fd, char *src, uint n)
     file->offset = file->offset + written;
     release(&ftable.lock);
     return written;
+
   } else if (file->type == PIPE) {
     // get pipe struct first
     struct pipe* curr_pipe = (struct pipe*) file->ip;
     acquire(&curr_pipe->lock);
-    
+
     // check if there is any more space left
     size_t to_write = curr_pipe->size_left;
     size_t written = 0;
     int rest = 0;
     // decide how much to write
     while (rest == 0) {
-      if (curr_pipe->read_ref_ct == 0) {
+      if (curr_pipe->read_ref_ct == 0) {  // nobody is waiting for read
         rest = -1;
         break;
       } else { // normal cases
@@ -356,7 +351,7 @@ int file_write(int fd, char *src, uint n)
         sleep(curr_pipe, &curr_pipe->lock);
       }
     }
-    
+
     // cleanups
     data_transfer(src, curr_pipe->buff + curr_pipe->write_off, written);
     // set offsets
@@ -381,7 +376,7 @@ int file_stat(int fd, struct stat *st)
   if (file == NULL)
     return -1;
 
-  if (file->type == FILE) { 
+  if (file->type == FILE) {
     // get the file inode
     struct inode *ip = (struct inode*)file->ip;
     concurrent_stati(ip, st);
@@ -394,18 +389,13 @@ int file_stat(int fd, struct stat *st)
 static int fd_available()
 {
   int fd;
-  for (fd = 0; fd < NOFILE; fd++)
-  {
+  for (fd = 0; fd < NOFILE; fd++) {
     if (myproc()->fds[fd] == NULL)
-    {
       break;
-    }
   }
 
   if (fd == NOFILE)
-  {
     return -1;
-  }
 
   return fd;
 }
