@@ -329,11 +329,11 @@ int file_write(int fd, char *src, uint n)
     acquire(&curr_pipe->lock);
 
     // check if there is any more space left
-    size_t to_write = curr_pipe->size_left;
     size_t written = 0;
     int rest = 0;
     // decide how much to write
     while (rest == 0) {
+      size_t to_write = curr_pipe->size_left;
       if (curr_pipe->read_ref_ct == 0) {  // nobody is waiting for read
         rest = -1;
         break;
