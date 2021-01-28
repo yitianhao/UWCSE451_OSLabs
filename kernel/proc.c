@@ -138,6 +138,7 @@ int fork(void)
     return -1;
   }
   child->parent = p;
+
   // 2. duplicate user memory
   if (vspaceinit(&child->vspace) != 0) {
     release(&ptable.lock);
@@ -186,15 +187,14 @@ void exit(void)
   struct proc* p = myproc();
   acquire(&ptable.lock);
 
-  // 3. set all its running children's parent to root
-  
+  // 1. set all its running children's parent to root
   for (struct proc* curr = ptable.proc; curr < &ptable.proc[NPROC]; curr++) {
     if (curr->parent->pid == p->pid && curr->state != UNUSED) {
       curr->parent = initproc;
     }
   }
- 
-  // 4. close up all opened files
+
+  // 2. close up all opened files
   for (int i = 0; i < NOFILE; i++) {
     if (p->fds[i] != NULL) {
       release(&ptable.lock);
@@ -203,10 +203,11 @@ void exit(void)
     }
   }
 
-  // 6. set its state to ZOMBIE
+  // 3. set its state to ZOMBIE
   p->state = ZOMBIE;
   p->killed = 0;
   p->chan = 0;
+
   // 5. wake its parent up
   wakeup1(p->parent);
   sched();
@@ -232,22 +233,25 @@ int wait(void)
         }
       }
     }
+    // if no child
     if (child_count == 0) {
-      // if no child
       release(&ptable.lock);
       return -1;
     }
-    // if there is some running children
+    // if there is no zombie children currently
     if (zombie == NULL) {
       sleep(p, &ptable.lock);
     }
     release(&ptable.lock);
   }
+
   // cleanup the child proc
   kfree(zombie->kstack);
   vspacefree(&(zombie->vspace));
   int child_pid = zombie->pid;
+  acquire(&ptable.lock);
   zombie->state = UNUSED;
+  release(&ptable.lock);
   return child_pid;
 }
 
@@ -304,8 +308,7 @@ void sched(void)
 
   if (!holding(&ptable.lock))
     panic("sched ptable.lock");
-  if (mycpu()->ncli != 1)
-  {
+  if (mycpu()->ncli != 1) {
     cprintf("pid : %d\n", myproc()->pid);
     cprintf("ncli : %d\n", mycpu()->ncli);
     cprintf("intena : %d\n", mycpu()->intena);
