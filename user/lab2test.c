@@ -137,6 +137,7 @@ void pipetest(void) {
         }
       }
       total += n;
+      printf(1, "%d\n", n);
       cc = cc * 2;
       if (cc > sizeof(buf))
         cc = sizeof(buf);

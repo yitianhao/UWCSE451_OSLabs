@@ -133,15 +133,20 @@ int fork(void)
   struct proc *p = myproc();
   struct proc *child = allocproc();
   acquire(&ptable.lock);
-  if (child == 0)
+  if (child == 0) {
+    release(&ptable.lock);
     return -1;
+  }
   child->parent = p;
-
   // 2. duplicate user memory
-  if (vspaceinit(&child->vspace) != 0)
+  if (vspaceinit(&child->vspace) != 0) {
+    release(&ptable.lock);
     return -1;
-  if (vspacecopy(&child->vspace, &p->vspace) != 0)
+  }
+  if (vspacecopy(&child->vspace, &p->vspace) != 0) {
+    release(&ptable.lock);
     return -1;
+  }
 
   // 3. duplicate trap frame
   memmove(child->tf, p->tf, sizeof(*p->tf));
@@ -154,7 +159,7 @@ int fork(void)
       child->fds[fd] = &(*p->fds[fd]); // off by one bug
       p->fds[fd]->ref_ct += 1;
       if (p->fds[fd]->type == PIPE) {
-        struct pipe* curr_pipe = (struct pipe*) p->fds[fd]->ip;
+        struct pipe* curr_pipe = (struct pipe*) (p->fds[fd]->ip);
         acquire(&curr_pipe->lock);
         if (p->fds[fd]->access_permi == O_RDONLY) {
           curr_pipe->read_ref_ct++;
@@ -167,7 +172,6 @@ int fork(void)
   }
 
   // 5. change child's state
-  
   child->state = RUNNABLE;
   child->tf->rax = 0; // return for child process
   release(&ptable.lock);
@@ -193,7 +197,9 @@ void exit(void)
   // 4. close up all opened files
   for (int i = 0; i < NOFILE; i++) {
     if (p->fds[i] != NULL) {
+      release(&ptable.lock);
       file_close(i);
+      acquire(&ptable.lock);
     }
   }
 

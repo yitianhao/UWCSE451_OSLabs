@@ -156,6 +156,7 @@ int file_close(int fd)
   process->fds[fd] = NULL;
   acquire(&ftable.lock);
   file->ref_ct--;
+  release(&ftable.lock);
   if (file->type == PIPE) {
     struct pipe* curr_pipe = (struct pipe*) file->ip;
     acquire(&curr_pipe->lock);
@@ -170,6 +171,7 @@ int file_close(int fd)
   // when no process is using this inode, clean up
   if (file->ref_ct == 0)
   {
+    acquire(&ftable.lock);
     if (file->type == FILE) {
       irelease((struct inode*)file->ip);
     } else if (file->type == PIPE) {
@@ -181,8 +183,8 @@ int file_close(int fd)
     file->access_permi = 0;
     file->ip = 0;
     file->offset = 0;
+    release(&ftable.lock);
   }
-  release(&ftable.lock);
   return 0;
 }
 
@@ -256,12 +258,12 @@ int file_read(int fd, char *dst, uint n)
 
     while (read == -1) {
       // decide how much to read and what to return
-      if (curr_pipe->write_ref_ct == 0) {
+      if (curr_pipe->write_ref_ct == 0) {  // if write end is closed
         if (to_read < n && to_read > 0) {
           read = to_read;
-          rest = 0;
+          rest = to_read;
         } else if (to_read == 0) { // closed and no more things to read
-          rest = -1;
+          rest = 0;
         } else { // read as usual
           rest = (size_t) n;
           read = n;
@@ -284,11 +286,6 @@ int file_read(int fd, char *dst, uint n)
     }
     // cleanups
     data_transfer(curr_pipe->buff + curr_pipe->read_off, dst, read);
-    // set offsets
-    curr_pipe->read_off += read;
-    acquire(&ftable.lock);
-    file->offset += read;
-
     // if the page is full, reset it iff writing end is still opened
     if (curr_pipe->read_off == curr_pipe->write_off 
         && curr_pipe->size_left == 0 
@@ -298,8 +295,12 @@ int file_read(int fd, char *dst, uint n)
       curr_pipe->size_left = sizeof(curr_pipe->buff);
       file->offset = 0;
     }
-    release(&ftable.lock);
+    // set offsets
+    curr_pipe->read_off += read;
     release(&curr_pipe->lock);
+    acquire(&ftable.lock);
+    file->offset += read;
+    release(&ftable.lock);
     return rest;
   }
   return -1;
@@ -361,10 +362,10 @@ int file_write(int fd, char *src, uint n)
     // set offsets
     curr_pipe->write_off += written;
     curr_pipe->size_left -= written;
+    release(&curr_pipe->lock);
     acquire(&ftable.lock);
     file->offset = curr_pipe->write_off;
     release(&ftable.lock);
-    release(&curr_pipe->lock);
     return rest;
   }
   return -1;
@@ -410,7 +411,8 @@ static int fd_available()
 }
 
 static void data_transfer(char* src, char* dest, size_t n) {
-  for (; src < src + n; src++) {
+  char* upto = src + n;
+  for (; src < upto; src++) {
     *dest = *src;
     dest++;
   }
