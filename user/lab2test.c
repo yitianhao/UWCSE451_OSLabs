@@ -137,13 +137,12 @@ void pipetest(void) {
         }
       }
       total += n;
-      printf(1, "%d\n", n);
       cc = cc * 2;
       if (cc > sizeof(buf))
         cc = sizeof(buf);
     }
     if (total != 5 * 95) {
-      error("pipetest: oops 3 total %d\n", total);
+      error("pipetest: oops 3 total %d %d %d\n", total, n, cc);
     }
     close(fds[0]);
     wait();

@@ -164,8 +164,8 @@ int file_close(int fd)
       curr_pipe->read_ref_ct--;
     } else {
       curr_pipe->write_ref_ct--;
-      wakeup(curr_pipe);
     }
+    wakeup(curr_pipe);
     release(&curr_pipe->lock);
   }
   // when no process is using this inode, clean up
@@ -250,14 +250,14 @@ int file_read(int fd, char *dst, uint n)
     // get pipe struct first
     struct pipe* curr_pipe = (struct pipe*) file->ip;
     acquire(&curr_pipe->lock);
-    
+
     // check if there is anything to read
-    size_t to_read = curr_pipe->write_off - curr_pipe->read_off;
     size_t read = -1;
     int rest = 0;
 
     while (read == -1) {
       // decide how much to read and what to return
+      size_t to_read = curr_pipe->write_off - curr_pipe->read_off;
       if (curr_pipe->write_ref_ct == 0) {  // if write end is closed
         if (to_read < n && to_read > 0) {
           read = to_read;
@@ -297,10 +297,11 @@ int file_read(int fd, char *dst, uint n)
     }
     // set offsets
     curr_pipe->read_off += read;
-    release(&curr_pipe->lock);
+    wakeup(curr_pipe);
     acquire(&ftable.lock);
     file->offset += read;
     release(&ftable.lock);
+    release(&curr_pipe->lock);
     return rest;
   }
   return -1;
@@ -362,10 +363,11 @@ int file_write(int fd, char *src, uint n)
     // set offsets
     curr_pipe->write_off += written;
     curr_pipe->size_left -= written;
-    release(&curr_pipe->lock);
+    wakeup(curr_pipe);
     acquire(&ftable.lock);
     file->offset = curr_pipe->write_off;
     release(&ftable.lock);
+    release(&curr_pipe->lock);
     return rest;
   }
   return -1;
