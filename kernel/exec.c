@@ -8,8 +8,28 @@
 #include <trap.h>
 #include <x86_64.h>
 
+static uint64_t correct_addr_and_copy(struct vspace vs, uint64_t addr, char* data, int data_size);
+
 int exec(char *path, char **argv) {
-  // 1. establish a (mock) new vspace for the current process,
+  // 1. get argc, probably can change this, the only reason to have this code
+  // is to get argc for step 5 to use (step 5 needs backward alignment)
+  // for example ['ls', 0] has argc 2
+  char* args[MAXARG];
+  int argc = 0;
+  uint64_t arg_addr = (uint64_t) argv;
+  for (; argc < MAXARG; argc++) {
+    uint64_t str_addr;
+    // use arg addr to get string addr (the starting addr of the string)
+    if (fetchint64_t(arg_addr, (int64_t*)&str_addr) == -1) return -1;
+    // get string itself
+    if (fetchstr(str_addr, &args[argc]) == -1 ) return -1;
+    if (args[argc] == NULL) break;
+    arg_addr += sizeof(char*);
+  }
+  argc++;
+  if (strncmp(args[0], path, strlen(path))) return -1;
+
+  // 2. establish a (mock) new vspace for the current process,
   // if everthing goes well, we will replace it with the current one.
   // This is a design decision: if anything goes wrong in the process of setting up
   // this new vspace, we won't miss up the current vspace
@@ -19,67 +39,61 @@ int exec(char *path, char **argv) {
     return -1;
   }
 
-  // 2. load the program
+  // 3. load the program
   uint64_t first_instruction;
-  if (vspaceloadcode(&vs, path, &first_instruction) != 0) {
+  if (vspaceloadcode(&vs, path, &first_instruction) == 0) {
     vspacefree(&vs);
     return -1;
   }
 
-  // 3. initialize user stack
-  if (vspaceinitstack(&vs, SZ_2G) != 0) {
-    vspacefree(&vs);
-    return -1;
-  }
-
-  // 4. set arguments to user stack
-  int idx = 0;
+  // 4. initialize user stack
   uint64_t addr = SZ_2G; // also vs.regions[VR_USTACK].va_base
-  while (argv[idx]) { idx++; } // now idx = array_len(argv)
-  int argc = idx;
-  idx--;
+  if (vspaceinitstack(&vs, addr) != 0) {
+    vspacefree(&vs);
+    return -1;
+  }
 
+  // 5. set arguments to user stack
+  int idx = argc - 2;
   while (idx >= 0) {
-    // get to the correct starting position for copying
-    addr -= strlen(argv[idx]) + 1;
-    while (addr % sizeof(char*) != 0) addr--;
-
-    // copy over
-    if (vspacewritetova(&vs, addr, argv[idx], strlen(argv[idx]) + 1) != 0) {
-      vspacefree(&vs);
-      return -1;
-    }
-
+    addr = correct_addr_and_copy(vs, addr, args[idx], strlen(args[idx]) + 1);
     // correcting the address stored in current stack, based on our alignment
-    argv[idx] = (char*)addr;
-
+    args[idx] = (char*)addr;
     idx--;
   }
 
-  // copy over argv (simplify this once we passed the tests)
-  addr -= argc * (sizeof(char*) + 1);
-  while (addr % sizeof(char*) != 0) addr--;
-  if (vspacewritetova(&vs, addr, (char*)argv, argc * (sizeof(char*) + 1)) != 0) {
-    vspacefree(&vs);
-    return -1;
-  }
+  // 6. copy over args
+  addr = correct_addr_and_copy(vs, addr, (char*)args, argc * sizeof(char*));
 
   struct proc* p = myproc();
 
-  // set rdi and rsi for main
-  p->tf->rdi = argc;
-  p->tf->rsi = addr;
+  // 7. set rdi and rsi for main
+  p->tf->rdi = argc - 1;  // arg0 - argc for main
+  p->tf->rsi = addr;  // arg1 - argv for main
   p->tf->rsp = addr - sizeof(char*);  // bottom of the stack
   p->tf->rip = first_instruction;
 
-  // copying vs over to current process
+  // 8. copying vs over to current process and install the process
   if (vspacecopy(&p->vspace, &vs) != 0) {
     vspacefree(&vs);
     return -1;
   }
-
   vspacefree(&vs);
   vspaceinstall(p);
 
   return 0;
+}
+
+static uint64_t correct_addr_and_copy(struct vspace vs, uint64_t addr, char* data, int data_size) {
+  // update addr
+  addr -= data_size;
+  // make alignment
+  while (addr % sizeof(char*) != 0) addr--;
+  // copy over
+  if (vspacewritetova(&vs, addr, data, data_size) != 0) {
+    vspacefree(&vs);
+    return -1;
+  }
+
+  return addr;
 }
