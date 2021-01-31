@@ -155,14 +155,15 @@ int fork(void)
   // 4. duplicate all the open files
   for (int fd = 0; fd < NOFILE; fd++)
   {
-    if (p->fds[fd] != NULL)
+    struct finfo* curr_file = p->fds[fd];
+    if (curr_file != NULL)
     {
-      child->fds[fd] = &(*p->fds[fd]); // off by one bug
-      p->fds[fd]->ref_ct += 1;
-      if (p->fds[fd]->type == PIPE) {
-        struct pipe* curr_pipe = (struct pipe*) (p->fds[fd]->ip);
+      child->fds[fd] = &(*curr_file); // off by one bug
+      curr_file->ref_ct += 1;
+      if (curr_file->type == PIPE) {
+        struct pipe* curr_pipe = (struct pipe*) (curr_file->ip);
         acquire(&curr_pipe->lock);
-        if (p->fds[fd]->access_permi == O_RDONLY) {
+        if (curr_file->access_permi == O_RDONLY) {
           curr_pipe->read_ref_ct++;
         } else {
           curr_pipe->write_ref_ct++;

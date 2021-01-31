@@ -231,8 +231,8 @@ int sys_open(void)
 int sys_exec(void)
 {
   char* path;
-  int64_t argv;
-  if (argstr(0, &path) < 0 || argint64(1, &argv)) {
+  char* argv;
+  if (argstr(0, &path) < 0 || argptr(1, &argv, sizeof(char*))) {
     return -1;
   }
 

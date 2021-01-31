@@ -12,3 +12,16 @@ Because when we call allocproc to allocate virtual address space for the child p
 it has set the rip (instruction pointer register) of its child process to retfork, which
 will be the very first scheduling for the child process by scheduler. By calling retfork,
 child process can be return to user-level application.
+
+Question #3
+How does process kill work in xk? What is its relationship with exit?
+
+A process can exit itself. A process (A) can kill another process (B). However, process B won't be
+actually "killed" until it tries to get kernel entry; if that is the case, process B will
+call exit to exit itself.
+
+Question #4
+For each member of the project team, how many hours did you
+spend on this lab?
+Kelvin Fang:
+Yitian Hao: 27h
