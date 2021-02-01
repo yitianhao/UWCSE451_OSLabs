@@ -22,5 +22,5 @@ terminated on the spot. It will try to get kernel entry and call exit to exit it
 Question #4
 For each member of the project team, how many hours did you
 spend on this lab?
-Kelvin Fang:
+Kelvin Fang: 20hrs
 Yitian Hao: 27h
