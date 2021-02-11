@@ -60,15 +60,24 @@ The philosophy is: to keep the critical section as small as possible.
 - Bookkeeping:
     - Have a pipe struct defined in file.h:
         - size_left: bytes left to be written
-        - read_ptr: offset of read
-        - write_ptr: offset of write
-        - buffer
+        - read_off: offset of read
+        - write_off: offset of write
+        - read_ref_ct: that counts number of file info struct (RDONLY) pointing to it
+        - write_ref_ct: that counts number of file info struct (WRONLY) pointing to it
+        - buffer (for communication)
     - since everything is working in memory, a spinlock is good here
 - edit `fileopen`/`filewrite`/`fileread`/`fileclose` to accommodate pipe
-- `kllock` a page for the pipe struct
-- `fileopen`: create two file info struct: 1 for read and 1 for write
+    - added `type` field to distinguish pipe from inode
+- `pipe_open`: create two file info struct: 1 for read and 1 for write
+    - `kllock` a page for the pipe struct
+        - it contains the buffer
 - `filewrite`/`fileread`: write iff size_left > 0 and read iff read_ptr > write_ptr. Reset read_ptr, write_ptr and size_left when buffer is full. If size_left < 0, call `fileclose` on the pipe
-- `fileclose`: if size_left >= 0, set it to a negative number and close the current fd. If size_left < 0, free the allocated page and close the current fd.
+    - read will be blocked if there's nothing to read and there's at least one opening write end
+    - write will be blocked if the buffer is full
+    - after reading/writing, all blocked (sleeping) reads and writes will be waked up.
+    - return -1 if read end is closed
+- `fileclose`: when read and write_ref_ct == 0, kfree the page. 
+    - whenever a pipe end is closed, wakeup all the sleeping reads and writes.
 
 #### exec:
 - Validate the given `char** argv` and the argument strings by looping through `argv` until `NULL`, also get `argc` in this process
