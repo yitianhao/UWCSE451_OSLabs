@@ -74,7 +74,6 @@ $(O)/initcode : kernel/initcode.S
 	$(OBJCOPY) -S -O binary $(O)/initcode.out $(O)/initcode
 	$(OBJDUMP) -S $(O)/initcode.o > $(O)/initcode.asm
 
-
 $(O)/bootblock: kernel/bootasm.S kernel/bootmain.c
 	$(CC) -m32 -fno-pic -Os -I inc -c kernel/bootmain.c -o $(O)/bootmain.o
 	$(CC) -m32 -fno-pic -nostdinc -I inc -c kernel/bootasm.S -o $(O)/bootasm.o

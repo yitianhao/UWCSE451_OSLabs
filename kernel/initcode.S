@@ -20,4 +20,3 @@ init:
 argv:
   .quad init
   .quad 0
-

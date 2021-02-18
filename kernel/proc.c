@@ -483,3 +483,14 @@ struct proc *findproc(int pid)
   }
   return 0;
 }
+
+int sbrk(int n) {
+  struct vregion* heap = &(myproc()->vspace.regions[VR_HEAP]);
+  uint64_t prev_brk = heap->size + heap->va_base;
+  // vregionaddmap handles everything including rounding to see if calling kalloc is needed
+  int size = vregionaddmap(heap, prev_brk, n, VPI_PRESENT, VPI_WRITABLE);
+  if (size < 0) return -1;
+  heap->size += size;
+  vspaceinvalidate(&(myproc()->vspace));
+  return prev_brk;
+}
