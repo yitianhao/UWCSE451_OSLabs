@@ -16,6 +16,8 @@ uint ticks;
 
 int num_page_faults = 0;
 
+int grow_user_stack_ondemand(uint64_t addr);
+
 void tvinit(void) {
   int i;
 
@@ -79,6 +81,12 @@ void trap(struct trap_frame *tf) {
     if (tf->trapno == TRAP_PF) {
       num_page_faults += 1;
 
+      // checking if this page fault is valid for growing stack on-demand
+      struct vregion stack = myproc()->vspace.regions[VR_USTACK];
+      if (addr >= stack.va_base - 10 * PGSIZE && addr < stack.va_base) {
+        if (grow_user_stack_ondemand(addr) != -1) return;  // correctly handled growing stack
+      }
+
       if (myproc() == 0 || (tf->cs & 3) == 0) {
         // In kernel, it must be our mistake.
         cprintf("unexpected trap %d from cpu %d rip %lx (cr2=0x%x)\n",
@@ -110,4 +118,16 @@ void trap(struct trap_frame *tf) {
   // Check if the process has been killed since we yielded
   if (myproc() && myproc()->killed && (tf->cs & 3) == DPL_USER)
     exit();
+}
+
+int grow_user_stack_ondemand(uint64_t addr) {
+  struct vregion* stack = &(myproc()->vspace.regions[VR_USTACK]);
+  uint64_t prev_limit= stack->va_base - stack->size;
+  uint64_t n = PGROUNDUP(prev_limit - addr);
+  // vregionaddmap handles everything including rounding to see if calling kalloc is needed
+  int size = vregionaddmap(stack, prev_limit - n, n, VPI_PRESENT, VPI_WRITABLE);
+  if (size < 0) return -1;
+  stack->size += size;
+  vspaceinvalidate(&(myproc()->vspace));
+  return prev_limit;
 }
