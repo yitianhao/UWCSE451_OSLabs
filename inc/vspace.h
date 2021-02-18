@@ -1,6 +1,7 @@
 #pragma once
 
 #include <defs.h>
+#include <spinlock.h>
 #include <mmu.h>
 
 #define NREGIONS 3
@@ -15,12 +16,13 @@ enum {
 #define VPI_WRITABLE ((short) 1)
 
 struct vpage_info {
+  struct spinlock lock;
   short used;     // whether the page is in use
   uint64_t ppn;   // physical page number
   short present;  // whether the page is in physical memory
   short writable; // does the page have write permissions
   // user defined fields
-
+  short copy_on_write; // tell if the current vpage is RDONLY bc of copy on write
 };
 
 #define VPIPPAGE ((PGSIZE/sizeof(struct vpage_info)) - 1)

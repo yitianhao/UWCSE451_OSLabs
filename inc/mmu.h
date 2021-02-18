@@ -152,6 +152,7 @@ struct segdesc {
 
 struct core_map_entry {
   int available;
+  int ref_ct;   // number of virtual addresses mapping to this physical memory
   short user;   // 0 if kernel allocated memory, otherwise is user
   uint64_t va;  // if it is used by kernel only, this field is 0
 };

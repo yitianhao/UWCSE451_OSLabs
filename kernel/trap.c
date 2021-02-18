@@ -13,6 +13,7 @@ struct gate_desc idt[256];
 extern void *vectors[]; // in vectors.S: array of 256 entry pointers
 struct spinlock tickslock;
 uint ticks;
+int validate_cow(uint64_t addr);
 
 int num_page_faults = 0;
 
@@ -87,6 +88,15 @@ void trap(struct trap_frame *tf) {
       }
     }
 
+    if (validate_cow(addr) == 0 && (tf->err & 2) && (tf->err & 1)) {
+      // it is caused by copy on write
+      if (vspace_copy_on_write(&myproc()->vspace, addr) != -1) {
+        return;
+      } else {
+        panic("err in vspace_copy_on_write");
+      }
+    }
+
     // Assume process misbehaved.
     cprintf("pid %d %s: trap %d err %d on cpu %d "
             "rip 0x%lx addr 0x%x--kill proc\n",
@@ -110,4 +120,19 @@ void trap(struct trap_frame *tf) {
   // Check if the process has been killed since we yielded
   if (myproc() && myproc()->killed && (tf->cs & 3) == DPL_USER)
     exit();
+}
+
+int validate_cow(uint64_t addr) {
+  struct vregion* curr_region = va2vregion(&myproc()->vspace, addr);
+  if (curr_region == 0) {
+    return -1;
+  }
+  struct vpage_info* curr_page = va2vpage_info(curr_region, addr);
+  if (curr_page == 0) {
+    return -1;
+  }
+  if (curr_page->copy_on_write) {
+    return 0;
+  }
+  return -1;
 }

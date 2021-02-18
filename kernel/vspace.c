@@ -609,3 +609,86 @@ vspacedumpcode(struct vspace*vs) {
     vpi = va2vpage_info(vr, va);
   }
 }
+
+// map all virtual addr of child's to physical addresses same as parent.
+// make these regions read only.
+// set these regions to be copy-on-write iff it was writable.
+int vspacemapregions(struct vspace* child, struct vspace* parent) {
+  for (int i = 0; i < NREGIONS; i++) {
+    // 1. find number of pages that this region occupies
+    int num_pages = parent->regions[i].size / PGSIZE + 1;
+    
+    enum vr_direction dir = parent->regions[i].dir;
+    uint64_t curr_va = parent->regions[i].va_base;
+
+    // 2. set child's parameters to be the same as parent's
+    child->regions[i].dir = dir;
+    child->regions[i].va_base = curr_va;
+    child->regions[i].size = parent->regions[i].size;
+    if (dir == VRDIR_DOWN) {
+      curr_va--;
+    }
+    // 3. set vpage_info's parameters and update child's page table
+    for (int j = 0; j < num_pages; j++) {
+      struct vpage_info* p = va2vpage_info(&parent->regions[i], curr_va);
+      struct vpage_info* c = va2vpage_info(&child->regions[i], curr_va);
+
+      // 3.1. set vpage_info of c to be the same as vpage_info of p
+      acquire(&p->lock);  // possible deadlock here, need to find some ways to walk around
+      acquire(&c->lock);
+      if (p->used) {
+        if (p->writable) {
+          p->writable = !p->writable;
+          p->copy_on_write = 1;
+          c->copy_on_write = 1;
+        }
+        c->writable = 0;
+        c->ppn = p->ppn;
+        c->present = p->present;
+        c->used = p->used;
+      }
+      release(&c->lock);
+      release(&p->lock);
+      // 3.3. decide if go up or go down
+      if (dir == VRDIR_UP) {
+        curr_va = curr_va + PGSIZE;
+      } else {
+        curr_va = curr_va - PGSIZE;
+      }
+    }
+  }
+  vspaceinvalidate(child);
+  return 0;
+}
+
+// handles copy_on_write
+int vspace_copy_on_write(struct vspace* vs, uint64_t va) {
+  struct vregion* curr_region = va2vregion(vs, va);
+  struct vpage_info* curr_page = va2vpage_info(curr_region, va);
+  acquire(&curr_page->lock);
+  // decrease ref_count if necessary
+  // 1. get PA
+  uint64_t pa = curr_page->ppn << PT_SHIFT;
+  if (cow_copy_out_page(pa) == 0) {
+    // 2. since we can just use the page
+    // 2.1. Set current vpage_info to writable and in not copy_on_write mode
+    curr_page->writable = 1;
+    curr_page->copy_on_write = 0;
+    // 2.2. Set page table permission to writable
+    release(&curr_page->lock);
+  } else {  // we need to allocate a new page and copy everything out
+    char* new_page = kalloc();
+    if (!new_page) {
+      return -1;
+    }
+    // 3. copy everything over
+    memmove(new_page, P2V(curr_page->ppn << PT_SHIFT), PGSIZE);
+    // 4. update current page_info
+    curr_page->writable = 1;
+    curr_page->copy_on_write = 0;
+    curr_page->ppn = V2P(new_page) >> PT_SHIFT;
+    release(&curr_page->lock);
+  }
+  vspaceinvalidate(vs);
+  return 0;
+}

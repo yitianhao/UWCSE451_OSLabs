@@ -97,6 +97,7 @@ void ioapicinit(void);
 
 // kalloc.c
 struct core_map_entry *pa2page(uint64_t pa);
+void increment_pp_ref_ct(uint64_t pa, int kern);
 void detect_memory(void);
 char *kalloc(void);
 void kfree(char *);
@@ -104,6 +105,7 @@ void mem_init(void *);
 void mark_user_mem(uint64_t, uint64_t);
 void mark_kernel_mem(uint64_t);
 struct core_map_entry *get_random_user_page();
+int cow_copy_out_page(uint64_t pa);
 
 // kbd.c
 void kbdintr(void);
@@ -141,6 +143,8 @@ void                vspacedumpstack(struct vspace *);
 void                vspacedumpcode(struct vspace *);
 int                 vregionaddmap(struct vregion *, uint64_t, uint64_t, short, short);
 int                 vregiondelmap(struct vregion *, uint64_t, uint64_t);
+int                 vspacemapregions(struct vspace* child, struct vspace* parent);
+int                 vspace_copy_on_write(struct vspace* vs, uint64_t va);
 
 // picirq.c
 void picenable(int);

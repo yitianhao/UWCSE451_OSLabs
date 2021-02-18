@@ -106,7 +106,13 @@ void kfree(char *v) {
     acquire(&kmem.lock);
 
   r = (struct core_map_entry *)pa2page(V2P(v));
-
+  if (r->ref_ct > 1) {
+    r->ref_ct--;
+    if (kmem.use_lock)
+      release(&kmem.lock);
+    return;
+  }
+  r->ref_ct = 0;
   pages_in_use--;
   free_pages++;
 
@@ -150,6 +156,7 @@ char *kalloc(void) {
   for (i = 0; i < npages; i++) {
     if (core_map[i].available == 1) {
       core_map[i].available = 0;
+      core_map[i].ref_ct = 1;
       pages_in_use++;
       free_pages--;
       if (kmem.use_lock)
@@ -188,4 +195,39 @@ struct core_map_entry * get_random_user_page() {
     }
   }
   panic("Tried 100 random indices for random user page, all failed");
+}
+
+// increase ref_count of the page that PA is in
+void increment_pp_ref_ct(uint64_t pa, int kern) {
+  if (kern) {
+    return;
+  }
+  struct core_map_entry* curr = pa2page(pa);
+  if (kmem.use_lock) {
+    acquire(&kmem.lock);
+  }
+  curr->ref_ct++;
+  if (kmem.use_lock) {
+    release(&kmem.lock);
+  }
+}
+
+// copy on write: we are writing, so need to make a copy
+// decrease ref_count of the page that PA is in.
+// if ref_count is 1 before decrement -> we can just use the page, return 0
+// else return 1
+int cow_copy_out_page(uint64_t pa) {
+  struct core_map_entry* curr = pa2page(pa);
+  if (curr->ref_ct > 1) {
+    if (kmem.use_lock) {
+      acquire(&kmem.lock);
+    }
+    curr->ref_ct--;
+    if (kmem.use_lock) {
+    release(&kmem.lock);
+    }
+    return 1;
+  } else {
+    return 0;
+  }
 }

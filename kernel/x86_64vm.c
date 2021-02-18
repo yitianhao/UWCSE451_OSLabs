@@ -118,7 +118,7 @@ mappages(pml4e_t *pml4, uint64_t virt_pn, int num_page, uint64_t phy_pn, int per
       panic("remap");
 
     *pte = PTE(phy_pn << PT_SHIFT, perm);
-
+    increment_pp_ref_ct(phy_pn << PT_SHIFT, kern);
     if (!kern)
       mark_user_mem(phy_pn << PT_SHIFT, virt_pn << PT_SHIFT);
 
