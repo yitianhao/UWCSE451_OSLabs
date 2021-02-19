@@ -82,6 +82,17 @@ void trap(struct trap_frame *tf) {
     if (tf->trapno == TRAP_PF) {
       num_page_faults += 1;
 
+      // check if it caused by copy on write
+      if (validate_cow(addr) == 0 && (tf->err & 2)) {
+        // it is caused by copy on write
+        if (vspace_copy_on_write(&myproc()->vspace, addr) != -1) {
+          vspaceinstall(myproc());
+          return;
+        } else {
+          panic("err in vspace_copy_on_write");
+        }
+      }
+
       // checking if this page fault is valid for growing stack on-demand
       struct vregion stack = myproc()->vspace.regions[VR_USTACK];
       if (addr >= stack.va_base - 10 * PGSIZE && addr < stack.va_base) {
@@ -93,15 +104,6 @@ void trap(struct trap_frame *tf) {
         cprintf("unexpected trap %d from cpu %d rip %lx (cr2=0x%x)\n",
                 tf->trapno, cpunum(), tf->rip, addr);
         panic("trap");
-      }
-    }
-
-    if (validate_cow(addr) == 0 && (tf->err & 2) && (tf->err & 1)) {
-      // it is caused by copy on write
-      if (vspace_copy_on_write(&myproc()->vspace, addr) != -1) {
-        return;
-      } else {
-        panic("err in vspace_copy_on_write");
       }
     }
 
@@ -134,6 +136,15 @@ int validate_cow(uint64_t addr) {
   struct vregion* curr_region = va2vregion(&myproc()->vspace, addr);
   if (curr_region == 0) {
     return -1;
+  }
+  if (curr_region->dir == VRDIR_DOWN) {
+    if (addr < curr_region->va_base - curr_region->size) {
+      return -1;
+    }
+  } else {
+    if (addr > curr_region->va_base + curr_region->size) {
+      return -1;
+    }
   }
   struct vpage_info* curr_page = va2vpage_info(curr_region, addr);
   if (curr_page == 0) {

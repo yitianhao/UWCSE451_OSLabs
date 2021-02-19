@@ -198,10 +198,7 @@ struct core_map_entry * get_random_user_page() {
 }
 
 // increase ref_count of the page that PA is in
-void increment_pp_ref_ct(uint64_t pa, int kern) {
-  if (kern) {
-    return;
-  }
+void increment_pp_ref_ct(uint64_t pa) {
   struct core_map_entry* curr = pa2page(pa);
   if (kmem.use_lock) {
     acquire(&kmem.lock);

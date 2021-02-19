@@ -149,6 +149,7 @@ int fork(void)
     release(&ptable.lock);
     return -1;
   }
+  vspaceinstall(myproc());
   /* to copy-on-write
   if (vspacecopy(&child->vspace, &p->vspace) != 0) {
     release(&ptable.lock);

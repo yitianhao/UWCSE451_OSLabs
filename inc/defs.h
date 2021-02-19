@@ -97,7 +97,7 @@ void ioapicinit(void);
 
 // kalloc.c
 struct core_map_entry *pa2page(uint64_t pa);
-void increment_pp_ref_ct(uint64_t pa, int kern);
+void increment_pp_ref_ct(uint64_t pa);
 void detect_memory(void);
 char *kalloc(void);
 void kfree(char *);
@@ -165,6 +165,7 @@ int wait(void);
 void wakeup(void *);
 void yield(void);
 void reboot(void);
+int sbrk(int n);
 
 // swtch.S
 void swtch(struct context **, struct context *);

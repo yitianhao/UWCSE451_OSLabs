@@ -637,16 +637,17 @@ int vspacemapregions(struct vspace* child, struct vspace* parent) {
       acquire(&p->lock);  // possible deadlock here, need to find some ways to walk around
       acquire(&c->lock);
       if (p->used) {
-        if (p->writable) {
-          p->writable = !p->writable;
+        if (p->writable || p->copy_on_write) {
+          p->writable = !VPI_WRITABLE;
           p->copy_on_write = 1;
           c->copy_on_write = 1;
         }
-        c->writable = 0;
+        c->writable = !VPI_WRITABLE;
         c->ppn = p->ppn;
         c->present = p->present;
         c->used = p->used;
       }
+      increment_pp_ref_ct(p->ppn << PT_SHIFT);
       release(&c->lock);
       release(&p->lock);
       // 3.3. decide if go up or go down
@@ -657,6 +658,7 @@ int vspacemapregions(struct vspace* child, struct vspace* parent) {
       }
     }
   }
+  vspaceinvalidate(parent);
   vspaceinvalidate(child);
   return 0;
 }
