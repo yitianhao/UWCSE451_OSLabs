@@ -97,6 +97,7 @@ void trap(struct trap_frame *tf) {
       struct vregion stack = myproc()->vspace.regions[VR_USTACK];
       if (addr >= stack.va_base - 10 * PGSIZE && addr < stack.va_base) {
         if (grow_user_stack_ondemand(addr) != -1) return;  // correctly handled growing stack
+        else panic("err in grow_user_stack_ondemand");
       }
 
       if (myproc() == 0 || (tf->cs & 3) == 0) {
@@ -158,7 +159,7 @@ int validate_cow(uint64_t addr) {
 
 int grow_user_stack_ondemand(uint64_t addr) {
   struct vregion* stack = &(myproc()->vspace.regions[VR_USTACK]);
-  uint64_t prev_limit= stack->va_base - stack->size;
+  uint64_t prev_limit = stack->va_base - stack->size;
   uint64_t n = PGROUNDUP(prev_limit - addr);
   // vregionaddmap handles everything including rounding to see if calling kalloc is needed
   int size = vregionaddmap(stack, prev_limit - n, n, VPI_PRESENT, VPI_WRITABLE);

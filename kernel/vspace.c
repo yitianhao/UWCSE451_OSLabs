@@ -21,8 +21,8 @@ va2vpi_idx(struct vregion *r, uint64_t va)
 }
 
 // given a reference to a vpage_info struct
-// returns its permissions with respect to the 
-// user bit, present bit, and writable bit  
+// returns its permissions with respect to the
+// user bit, present bit, and writable bit
 static int
 x86perms(struct vpage_info *vpi)
 {
@@ -34,10 +34,10 @@ x86perms(struct vpage_info *vpi)
   return perms;
 }
 
-extern pml4e_t *kpml4;  // kernel page table 
+extern pml4e_t *kpml4;  // kernel page table
 
-// allocates space for the kernel page table and populates 
-// it with the kernel's virtual address mapping after the 
+// allocates space for the kernel page table and populates
+// it with the kernel's virtual address mapping after the
 // virtual address space has been initialized by the kernel
 void
 vspacebootinit(void)
@@ -47,8 +47,8 @@ vspacebootinit(void)
   seginit();   // segment table
 }
 
-// initializes a given vspace struct, by creating the page table 
-// setting the kernel part of the page table and then adding the 
+// initializes a given vspace struct, by creating the page table
+// setting the kernel part of the page table and then adding the
 // appropriate regions
 int
 vspaceinit(struct vspace *vs)
@@ -71,7 +71,7 @@ vspaceinit(struct vspace *vs)
 }
 
 // Adds a mapping in the vregion from the virtual address from_va of size sz with the appropriate
-// permissions. If size spans more than one page, multiple physical pages are mapped into the 
+// permissions. If size spans more than one page, multiple physical pages are mapped into the
 // page table
 int
 vregionaddmap(struct vregion *vr, uint64_t from_va, uint64_t sz, short present, short writable)
@@ -88,7 +88,7 @@ vregionaddmap(struct vregion *vr, uint64_t from_va, uint64_t sz, short present, 
   for (a = PGROUNDUP(from_va); a < from_va + sz; a += PGSIZE) {
     if (!(vpi = va2vpage_info(vr, a)))
       goto addmap_failure;
-    
+
     mem = kalloc();
     if (!mem)
       goto addmap_failure;
@@ -115,7 +115,7 @@ addmap_failure:
 }
 
 
-// Adds a mapping into the vregion at va of size sz with the given permissions and then 
+// Adds a mapping into the vregion at va of size sz with the given permissions and then
 // copies the data present in data to these addresses
 static int
 vradddata(struct vregion *r, uint64_t va, char *data, int sz, short present, short writable)
@@ -155,9 +155,9 @@ vrloaddata(struct vregion *r, uint64_t va, struct inode *ip, uint offset, uint s
   return 0;
 }
 
-// Initializes the code region in the given vspace and copies the 
-// code in init to the region. Also allocates space for the stack 
-// region of 1 page. 
+// Initializes the code region in the given vspace and copies the
+// code in init to the region. Also allocates space for the stack
+// region of 1 page.
 // Note: This should only be called by the initial process.
 void
 vspaceinitcode(struct vspace *vs, char *init, uint64_t size)
@@ -185,9 +185,9 @@ vspaceinitcode(struct vspace *vs, char *init, uint64_t size)
   vspaceinvalidate(vs);
 }
 
-// loads the code for the given program at 'path' into the 
-// vspace for a process. The program must be ELF compliant. The 
-// first instruction for the program is returned in the output 
+// loads the code for the given program at 'path' into the
+// vspace for a process. The program must be ELF compliant. The
+// first instruction for the program is returned in the output
 // parameter rip
 int
 vspaceloadcode(struct vspace *vs, char *path, uint64_t *rip)
@@ -202,7 +202,7 @@ vspaceloadcode(struct vspace *vs, char *path, uint64_t *rip)
   if((ip = namei(path)) == 0){
     return 0;
   }
-  
+
   locki(ip);
 
   // Check ELF header
@@ -256,7 +256,7 @@ elf_failure:
   return 0;
 }
 
-// invalidates the given vspace method in essense remaps the user's virtual 
+// invalidates the given vspace method in essense remaps the user's virtual
 // address space but does not install the rebuilt vspace on the cpu
 void
 vspaceinvalidate(struct vspace *vs)
@@ -290,13 +290,13 @@ vspaceinvalidate(struct vspace *vs)
 }
 
 // Marks the current user address as not present in the page directory
-// for the passed vspace. 
+// for the passed vspace.
 // user_va must be rounded down to the nearest page.
 void vspacemarknotpresent(struct vspace *vspace, uint64_t user_va) {
   struct vregion *vr;
   struct vpage_info *vpi;
   pte_t *pte;
-  
+
   // Grab arguments and ensure they are valid and exist.
   assert(user_va % PGSIZE == 0);
   assert(vspace);
@@ -317,10 +317,10 @@ void vspacemarknotpresent(struct vspace *vspace, uint64_t user_va) {
 }
 
 
-// installs the process' page table/vspace on the given 
+// installs the process' page table/vspace on the given
 // cpu
 //
-// panics if p is 0, there is no kernel stack initialized, 
+// panics if p is 0, there is no kernel stack initialized,
 // or if there is no page table initialized
 void
 vspaceinstall(struct proc *p)
@@ -359,7 +359,7 @@ free_page_desc_list(struct vpi_page *page)
   kfree((char *)page);
 }
 
-// frees the given vpsace by freeing each page that 
+// frees the given vpsace by freeing each page that
 // the vspace is using and then frees the underlying page
 // table
 void
@@ -375,7 +375,7 @@ vspacefree(struct vspace *vs)
   freevm(vs->pgtbl);
 }
 
-// returns the region that a given virtual address exists 
+// returns the region that a given virtual address exists
 // in for the given vspace. 0 is returned if there is no
 // vregion found
 struct vregion*
@@ -451,7 +451,7 @@ vspacecontains(struct vspace *vs, uint64_t va, int size)
 
 // recursively copies the vpi_page struct from src to dst
 //
-// return 0 on success, -1 if failed 
+// return 0 on success, -1 if failed
 static int
 copy_vpi_page(struct vpi_page **dst, struct vpi_page *src)
 {
@@ -504,8 +504,8 @@ vspacecopy(struct vspace *dst, struct vspace *src)
 }
 
 
-// initializes the stack region in the user's address space for the 
-// given vspace beginning at start and growing down from that address. 
+// initializes the stack region in the user's address space for the
+// given vspace beginning at start and growing down from that address.
 // The stack starts with 1 page.
 int
 vspaceinitstack(struct vspace *vs, uint64_t start)
@@ -524,8 +524,8 @@ vspaceinitstack(struct vspace *vs, uint64_t start)
 }
 
 // writes sz amount of the data provided into the virtual address space for the user
-// at va. In the user space corresponding to vs if the data at va accessed it will 
-// correspond to the data provided to this method. 
+// at va. In the user space corresponding to vs if the data at va accessed it will
+// correspond to the data provided to this method.
 //
 // va must be greater than 0 and not above the kernel base
 int
@@ -570,14 +570,14 @@ vspacedumpstack(struct vspace *vs) {
   struct vpage_info *vpi;
   uint64_t starting_va;
   uint64_t ending_va;
-  int words = 10;  
-  
+  int words = 10;
+
   starting_va = vr->va_base - sizeof(uint64_t);
   ending_va = max(vr->va_base - vr->size, vr->va_base - words * (sizeof(uint64_t)));
   vpi = va2vpage_info(vr, starting_va);
-	
+
   cprintf("dumping stack: base=%p size=%d\n", vr->va_base, vr->size);
-	
+
   for (uint64_t va = starting_va; va >= ending_va; va -= sizeof(uint64_t)) {
     uint64_t la = (uint64_t) P2V(vpi->ppn << PT_SHIFT) + (va % PGSIZE);
     memmove(&data, (void *) la, sizeof(uint64_t));
@@ -593,10 +593,10 @@ vspacedumpcode(struct vspace*vs) {
   struct vpage_info *vpi;
   uint64_t starting_va;
   uint64_t ending_va;
-  
+
   starting_va = vr->va_base;
   vpi = va2vpage_info(vr, starting_va);
-	
+
   cprintf("dumping code: base=%p size=%d\n", vr->va_base, vr->size);
   int va = starting_va;
   while(vpi && vpi->used) {
@@ -617,7 +617,7 @@ int vspacemapregions(struct vspace* child, struct vspace* parent) {
   for (int i = 0; i < NREGIONS; i++) {
     // 1. find number of pages that this region occupies
     int num_pages = parent->regions[i].size / PGSIZE + 1;
-    
+
     enum vr_direction dir = parent->regions[i].dir;
     uint64_t curr_va = parent->regions[i].va_base;
 

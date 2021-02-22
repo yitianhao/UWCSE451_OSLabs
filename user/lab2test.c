@@ -37,11 +37,11 @@ void exectest(void);
 int main() {
   int pid, wpid;
 
-  if (open("console", O_RDWR) < 0) {
-    return -1;
-  }
-  dup(0); // stdout
-  dup(0); // stderr
+  // if (open("console", O_RDWR) < 0) {
+  //   return -1;
+  // }
+  // dup(0); // stdout
+  // dup(0); // stderr
 
   pid = fork();
   if (pid < 0) {
@@ -60,8 +60,8 @@ int main() {
 
     printf(1, "lab2 tests passed!!\n");
 
-    while (1)
-      ;
+    // while (1)
+    //   ;
   }
 
   while ((wpid = wait()) >= 0 && wpid != pid)
@@ -126,7 +126,7 @@ void pipetest(void) {
       }
     }
     exit();
-  } else if (pid > 0) { 
+  } else if (pid > 0) {
     close(fds[1]);
     total = 0;
     cc = 1;
