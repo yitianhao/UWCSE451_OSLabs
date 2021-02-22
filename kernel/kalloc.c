@@ -172,19 +172,19 @@ char *kalloc(void) {
 }
 
 
-static unsigned long int next = 1; 
+static unsigned long int next = 1;
 
 // returns random integer from [0, limit)
-static int rand(int limit) { 
-  next = next * 1103515245 + 12345; 
-  return (unsigned int)(next/65536) % limit; 
-} 
+static int rand(int limit) {
+  next = next * 1103515245 + 12345;
+  return (unsigned int)(next/65536) % limit;
+}
 
 // Sets the seed for random.
 // Intended to be used before calling rand.
-static void setrand(unsigned int seed) { 
-  next = seed; 
-} 
+static void setrand(unsigned int seed) {
+  next = seed;
+}
 
 struct core_map_entry * get_random_user_page() {
   int x = 100;
@@ -197,6 +197,7 @@ struct core_map_entry * get_random_user_page() {
   panic("Tried 100 random indices for random user page, all failed");
 }
 
+// implemented for lab3 copy-on-write fork
 // increase ref_count of the page that PA is in
 void increment_pp_ref_ct(uint64_t pa) {
   struct core_map_entry* curr = pa2page(pa);
@@ -209,6 +210,7 @@ void increment_pp_ref_ct(uint64_t pa) {
   }
 }
 
+// implemented for lab3 copy-on-write fork
 // copy on write: we are writing, so need to make a copy
 // decrease ref_count of the page that PA is in.
 // if ref_count is 1 before decrement -> we can just use the page, return 0

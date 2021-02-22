@@ -610,6 +610,7 @@ vspacedumpcode(struct vspace*vs) {
   }
 }
 
+// implemendted in lab3 for copy-on-write fork
 // map all virtual addr of child's to physical addresses same as parent.
 // make these regions read only.
 // set these regions to be copy-on-write iff it was writable.
@@ -647,7 +648,7 @@ int vspacemapregions(struct vspace* child, struct vspace* parent) {
         c->present = p->present;
         c->used = p->used;
       }
-      increment_pp_ref_ct(p->ppn << PT_SHIFT);
+      increment_pp_ref_ct(p->ppn << PT_SHIFT);  // implemented in kalloc.c
       release(&c->lock);
       release(&p->lock);
       // 3.3. decide if go up or go down
@@ -663,6 +664,7 @@ int vspacemapregions(struct vspace* child, struct vspace* parent) {
   return 0;
 }
 
+// implemented for lab3 copy-on-write fork
 // handles copy_on_write
 int vspace_copy_on_write(struct vspace* vs, uint64_t va) {
   struct vregion* curr_region = va2vregion(vs, va);
@@ -672,7 +674,7 @@ int vspace_copy_on_write(struct vspace* vs, uint64_t va) {
   // 1. get PA
   uint64_t pa = curr_page->ppn << PT_SHIFT;
   if (cow_copy_out_page(pa) == 0) {
-    // 2. since we can just use the page
+    // 2. since we can just use the page (now ref_ct == 1)
     // 2.1. Set current vpage_info to writable and in not copy_on_write mode
     curr_page->writable = 1;
     curr_page->copy_on_write = 0;

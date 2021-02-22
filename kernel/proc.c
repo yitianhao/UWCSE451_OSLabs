@@ -144,7 +144,7 @@ int fork(void)
     release(&ptable.lock);
     return -1;
   }
-  // copy-on-write
+  // 2.1 copy-on-write
   if (vspacemapregions(&child->vspace, &p->vspace) != 0) {
     release(&ptable.lock);
     return -1;
@@ -485,6 +485,7 @@ struct proc *findproc(int pid)
   return 0;
 }
 
+// implemented for lab3: user heap
 int sbrk(int n) {
   struct vregion* heap = &(myproc()->vspace.regions[VR_HEAP]);
   uint64_t prev_brk = heap->size + heap->va_base;
