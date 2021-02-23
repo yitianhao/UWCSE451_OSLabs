@@ -86,7 +86,6 @@ void trap(struct trap_frame *tf) {
       if (validate_cow(addr) == 0 && (tf->err & 2)) {
         // it is caused by copy on write
         if (vspace_copy_on_write(&myproc()->vspace, addr) != -1) { // implemented in vspace.c
-          vspaceinstall(myproc());
           return;
         } else {
           panic("err in vspace_copy_on_write");

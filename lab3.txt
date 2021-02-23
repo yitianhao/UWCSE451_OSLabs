@@ -44,8 +44,8 @@ Question #6:
 The TLB caches the page table entries of recently referenced
 pages.  When you modify the page table entry to allow write access,
 how does xk ensure that the TLB does not have a stale version of the cache?
-After copy-on-write, we call vspaceinstall which will install the current process's
-vsapce in the current cpu, which will update the TLB.
+After copy-on-write, we call vspaceinvalidate which will update the current process's
+page table.
 
 Question #7
 For each member of the project team, how many hours did you

@@ -686,12 +686,13 @@ int vspace_copy_on_write(struct vspace* vs, uint64_t va) {
   // decrease ref_count if necessary
   // 1. get PA
   uint64_t pa = curr_page->ppn << PT_SHIFT;
-  if (cow_copy_out_page(pa, curr_page) == 0) {
+  if (cow_copy_out_page(pa, curr_page) == 0) {  // implemented in kalloc.c
     // 2. since we can just use the page
     release(&curr_page->lock);
   } else {  // we need to allocate a new page and copy everything out
     char* new_page = kalloc();
     if (!new_page) {
+      release(&curr_page->lock);
       return -1;
     }
     // 3. copy everything over

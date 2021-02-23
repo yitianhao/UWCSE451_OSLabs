@@ -26,11 +26,11 @@ void growstacktest_edgecase(void);
 void copyonwriteforktest(void);
 
 int main(int argc, char *argv[]) {
-  //memtest();
+  memtest();
   sbrktest();
-  //growstacktest();
-  //growstacktest_edgecase();
-  //copyonwriteforktest();
+  growstacktest();
+  growstacktest_edgecase();
+  copyonwriteforktest();
 
   printf(stdout, "lab3 tests passed!!\n");
 
