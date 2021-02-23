@@ -26,11 +26,11 @@ void growstacktest_edgecase(void);
 void copyonwriteforktest(void);
 
 int main(int argc, char *argv[]) {
-  memtest();
+  //memtest();
   sbrktest();
-  growstacktest();
-  growstacktest_edgecase();
-  copyonwriteforktest();
+  //growstacktest();
+  //growstacktest_edgecase();
+  //copyonwriteforktest();
 
   printf(stdout, "lab3 tests passed!!\n");
 
@@ -135,6 +135,7 @@ void sbrktest(void) {
       free_pages = info.free_pages;
       // printf(stdout, "free pages before sbrk: %d\n", free_pages);
       c = sbrk(BIG);
+      printf(stdout, "%d\n", c);
     } while ((c = sbrk(BIG)) != (char *) -1);
     sysinfo(&info);
     printf(stdout, "free pages after out-of-memory(shouldn't be 0): %d\n", info.free_pages);

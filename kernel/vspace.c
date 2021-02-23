@@ -618,7 +618,7 @@ vspacedumpcode(struct vspace*vs) {
 int vspacemapregions(struct vspace* child, struct vspace* parent) {
   for (int i = 0; i < NREGIONS; i++) {
     // 1. find number of pages that this region occupies
-    int num_pages = parent->regions[i].size / PGSIZE + 1;
+    int num_pages = (parent->regions[i].size + PGSIZE - 1) / PGSIZE;
 
     enum vr_direction dir = parent->regions[i].dir;
     uint64_t curr_va = parent->regions[i].va_base;

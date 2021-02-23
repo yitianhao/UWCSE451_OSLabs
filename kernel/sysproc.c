@@ -57,8 +57,12 @@ int sys_sbrk(void) {
 
   if (argint(0, &n) < 0) return -1;
   if (n < 0) n = 0;
-
-  return sbrk(n);
+  n = sbrk(n);
+  if (n == -1) {
+    return -1;
+  } else {
+    return n;
+  }
 }
 
 int sys_sleep(void) {
