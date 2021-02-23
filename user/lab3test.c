@@ -113,7 +113,7 @@ void sbrktest(void) {
   lastaddr = (char *)(BIG - 1);
   *lastaddr = 99;
 
-  // can we read the kernel's memory? 
+  // can we read the kernel's memory?
   printf(stdout, "pids 4-43 (6-45 if ran after sh) should be killed with trap 14 err 5\n");
   for (a = (char *)(KERNBASE); a < (char *)(KERNBASE + 2000000); a += 50000) {
     pid = fork();

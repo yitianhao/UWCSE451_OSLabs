@@ -36,16 +36,16 @@ run-time (i.e., to deallocate the user stack when a procedure with a
 large number of local variables goes out of scope)?  If so, sketch how that
 might work.
 Yes, we can have a pointer that points to the top of the stack. We partition stack into blocks
-based on their function calls. When a function returns, the stack associated with  the function will be popped
-(i.e. the stack pointer will point to the stack boundary of the function that called the returning function).
+based on their function calls. When a function returns, the stack associated with the function will be popped
+(i.e., the stack pointer will point to the stack boundary of the function that called the returning function).
 After the pointer shifted, OS could step in and check if there is any free pages that could be thrown away.
 
 Question #6:
 The TLB caches the page table entries of recently referenced
 pages.  When you modify the page table entry to allow write access,
 how does xk ensure that the TLB does not have a stale version of the cache?
-During copy-on-write, we call vspaceinvalidate which will rebuild the user's virtual
-address space (update TLB).
+After copy-on-write, we call vspaceinstall which will install the current process's
+vsapce in the current cpu, which will update the TLB.
 
 Question #7
 For each member of the project team, how many hours did you
