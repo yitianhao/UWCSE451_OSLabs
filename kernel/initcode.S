@@ -14,7 +14,7 @@ exit:
   jmp exit
 
 init:
-  .string "/lab2test\0"
+  .string "/init\0"
 
 .p2align 2
 argv:

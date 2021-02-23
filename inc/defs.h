@@ -105,7 +105,7 @@ void mem_init(void *);
 void mark_user_mem(uint64_t, uint64_t);
 void mark_kernel_mem(uint64_t);
 struct core_map_entry *get_random_user_page();
-int cow_copy_out_page(uint64_t pa);
+int cow_copy_out_page(uint64_t pa, struct vpage_info* curr_page);
 
 // kbd.c
 void kbdintr(void);

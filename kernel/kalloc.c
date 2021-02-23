@@ -9,6 +9,7 @@
 #include <mmu.h>
 #include <param.h>
 #include <spinlock.h>
+#include <vspace.h>
 
 int npages = 0;
 int pages_in_use;
@@ -74,7 +75,7 @@ void mem_init(void *vstart) {
   vstart += PGROUNDUP(npages * sizeof(struct core_map_entry));
 
   initlock(&kmem.lock, "kmem");
-  kmem.use_lock = 0;
+  kmem.use_lock = 1;
 
   vend = (void *)P2V((uint64_t)(npages * PGSIZE));
   freerange(vstart, vend);
@@ -199,10 +200,10 @@ struct core_map_entry * get_random_user_page() {
 
 // increase ref_count of the page that PA is in
 void increment_pp_ref_ct(uint64_t pa) {
-  struct core_map_entry* curr = pa2page(pa);
   if (kmem.use_lock) {
     acquire(&kmem.lock);
   }
+  struct core_map_entry* curr = pa2page(pa);
   curr->ref_ct++;
   if (kmem.use_lock) {
     release(&kmem.lock);
@@ -213,18 +214,25 @@ void increment_pp_ref_ct(uint64_t pa) {
 // decrease ref_count of the page that PA is in.
 // if ref_count is 1 before decrement -> we can just use the page, return 0
 // else return 1
-int cow_copy_out_page(uint64_t pa) {
-  struct core_map_entry* curr = pa2page(pa);
-  if (curr->ref_ct > 1) {
-    if (kmem.use_lock) {
+int cow_copy_out_page(uint64_t pa, struct vpage_info* curr_page) {
+  if (kmem.use_lock) {
       acquire(&kmem.lock);
-    }
+  }
+  struct core_map_entry* curr = pa2page(pa);
+  if (curr->ref_ct > 1) {  
     curr->ref_ct--;
     if (kmem.use_lock) {
     release(&kmem.lock);
     }
     return 1;
   } else {
+    // 2.1. Set current vpage_info to writable and in not copy_on_write mode
+    curr_page->writable = 1;
+    curr_page->copy_on_write = 0;
+    // 2.2. Set page table permission to writable
+    if (kmem.use_lock) {
+    release(&kmem.lock);
+    }
     return 0;
   }
 }

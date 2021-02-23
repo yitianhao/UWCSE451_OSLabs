@@ -4,6 +4,7 @@
 #include <fcntl.h>
 #include <stat.h>
 #include <user.h>
+#include <sysinfo.h>
 
 char *argv[] = {"sh", 0};
 
@@ -31,5 +32,6 @@ int main(void) {
     }
     while ((wpid = wait()) >= 0 && wpid != pid)
       printf(1, "zombie!\n");
+    
   }
 }
