@@ -11,9 +11,9 @@
 static uint64_t get_addr_and_copy(struct vspace vs, uint64_t addr, char* data, int data_size);
 
 int exec(char *path, char **argv) {
-  // 1. get argc, probably can change this, the only reason to have this code
-  // is to get argc for step 5 to use (step 5 needs backward alignment)
-  // for example ['ls', 0] has argc 2
+  // 1. get argc and validated version of argv,
+  // the reason is to get argc for step 5 to use (step 5 needs backward alignment)
+  // for example, ['ls', null] has argc 2
   int argc = 0;
   uint64_t arg_addr = (uint64_t) argv;
   for (; argc <= MAXARG; argc++) {  // Q: why while loop doesn't work
@@ -73,12 +73,11 @@ int exec(char *path, char **argv) {
   p->tf->rip = first_instruction;
 
   // 8. copying vs over to current process and install the process
-  if (vspacecopy(&p->vspace, &vs) != 0) {
-    vspacefree(&vs);
-    return -1;
-  }
-  vspacefree(&vs);
+  struct vspace old_vs = p->vspace;
+  p->vspace = vs;
+  vspaceinvalidate(&p->vspace);
   vspaceinstall(p);
+  vspacefree(&old_vs);
 
   return 0;
 }

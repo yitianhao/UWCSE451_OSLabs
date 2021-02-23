@@ -123,7 +123,7 @@ void pipetest(void) {
       }
     }
     exit();
-  } else if (pid > 0) { 
+  } else if (pid > 0) {
     close(fds[1]);
     total = 0;
     cc = 1;

@@ -22,29 +22,28 @@ still behaving as if the memory was copied
 ## In-depth Analysis and Implementation
 
 ### Part 1: Create User-Level Heap
-- get `uint64_t from_va = vs.regions[VR_HEAP].size + vs.regions[VR_HEAP].va_base`
-- if the current page is enough (i.e., `vs.regions[VR_HEAP].size % 4096 + n < 4096`), jump to increment
-- call `vregionaddmap` to
-  - store the value of `myproc()->vspace` into a variable `vs`
-  - get `struct vregion *vr = &(vs.regions[VR_HEAP])`
-  - get `uint64_t sz = roundup((n - remaining_size) / 4096) * 4096`
+- get `uint64_t prev_brk = vs.regions[VR_HEAP].size + vs.regions[VR_HEAP].va_base`
+- call `vregionaddmap` to add mapping of new space starting from `prev_brk` of size `n`, this function will allocate pages based on needs
+  - set `struct vregion *vr = &(vs.regions[VR_HEAP])`
+  - set `uint64_t sz = n`
   - set `short present = 1`
   - set `short writable = 1`
-- increment `vs.regions[VR_HEAP].size` by n
-- calls `vspaceinvalidate` and `vspaceinstall`
+- increment `vs.regions[VR_HEAP].size` by `n`
+- call `vspaceinvalidate`
+- return `prev_brk`
 
 ### Part 2: Grow User Stack On-demand
-- if `rcr2() > vs.regions[VR_USTACK].va_base - 10 * 4096` it's a valid page fault (`b2` in user mode) so that we can handle it.
-- check limit of the current allocated stack by `vs.regions[VR_HEAP].va_base + roundup(size / 4096) * 4096`
-- if `rcr2()` is within the current limit, jump to increment
-- else, call `vregionaddmap`
-  - store the value of `myproc()->vspace` into a variable `vs`
-  - get `struct vregion *vr = &(vs.regions[VR_USTACK])`
-  - get `uint64_t sz = roundup((limit - rcr2()) / 4096) * 4096`
+- notice that the stack grows from high address to low address; thus, all the implementation below needs to take this into account
+- if `addr > vs.regions[VR_USTACK].va_base - 10 * 4096` it's a valid page fault so that we can handle it.
+- get `uint64_t prev_limit = stack->va_base - stack->size`
+- set `n` to be the rounded number of `prev_limit - addr` (due to the implementation of `vregionaddmap`, this time we need to calculate the alignment ourselves)
+- call `vregionaddmap` to add mapping of new space starting from `prev_limit - n` of size `n`, this function will allocate pages based on needs
+  - set `struct vregion *vr = &(vs.regions[VR_USTACK])`
+  - set `uint64_t sz = n`
   - set `short present = 1`
   - set `short writable = 1`
-- increment `vs.regions[VR_USTACK].size` by `va_base - rcr2()`
-- calls `vspaceinvalidate` and `vspaceinstall`
+- increment `vs.regions[VR_USTACK].size` by `n`
+- call `vspaceinvalidate`
 
 ### Part 3: Make Copy-on-write Fork
 - bookkeeping
