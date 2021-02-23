@@ -1,8 +1,8 @@
 Question #1
 Why might an application prefer using malloc and free instead of using sbrk directly?
-- It's always good to have some "interface" that is easy to use for users.
+- It's always good to have some "interface" that is easy to use for users instead of using system call directly.
 - We want to have a layer of abstraction so that user will not have any chance to visualize
-  the mapping between VM and PM.
+  the underlying/mapping between VM and PM.
 
 Question #2:
 Explain how the file descriptors of ls and wc change when the user types ls | wc
@@ -11,8 +11,8 @@ in xk's shell.
 2. Then the parent will fork 2 new children, so the children processes can inherit their
 parent's file descriptors.
 3. Each of the child will execute the program and transfer data using pipe:
-   child A will execute ls, call dup to duplicate the write end of the pipe
-   child B will execute wc, call dup to duplicate the read end of the pipe
+   child A will execute ls, call dup to duplicate the write end of the pipe (in replace for stdout)
+   child B will execute wc, call dup to duplicate the read end of the pipe (in replace for stdin)
 
 Question #3:
 When a syscall completes, user-level execution resumes with the instruction
@@ -35,7 +35,7 @@ Is it possible to reduce the user stack size at
 run-time (i.e., to deallocate the user stack when a procedure with a
 large number of local variables goes out of scope)?  If so, sketch how that
 might work.
-Yes, we can have a pointer that points to the top of the stack. We partition stack into blocks
+Yes, we can have a pointer that points to the bottom of the stack. We partition stack into blocks
 based on their function calls. When a function returns, the stack associated with the function will be popped
 (i.e., the stack pointer will point to the stack boundary of the function that called the returning function).
 After the pointer shifted, OS could step in and check if there is any free pages that could be thrown away.
@@ -50,5 +50,5 @@ page table.
 Question #7
 For each member of the project team, how many hours did you
 spend on this lab?
-Yitian Hao: 18h
+Yitian Hao: 18 hrs
 Kelvin Fang: 16 hrs
