@@ -112,6 +112,7 @@ addmap_failure:
     vpi->ppn = 0;
     release(&vpi->lock);
   }
+  //cprintf("**********failure!\n");
   return -1;
 }
 
@@ -374,6 +375,17 @@ vspacefree(struct vspace *vs)
   }
 
   freevm(vs->pgtbl);
+}
+
+void
+vspacefree_wo_pgtbl(struct vspace *vs)
+{
+  struct vregion *vr;
+
+  for (vr = &vs->regions[0]; vr < &vs->regions[NREGIONS]; vr++) {
+    free_page_desc_list(vr->pages);
+    memset(vr, 0, sizeof(struct vregion));
+  }
 }
 
 // returns the region that a given virtual address exists

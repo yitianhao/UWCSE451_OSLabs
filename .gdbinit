@@ -41,11 +41,11 @@ define pass_sc
 end
 
 set arch i386:x86-64:intel
-target remote localhost:26366
+target remote localhost:27016
 symbol out/xk.elf
 b main
 c
 disconnect
 set arch i386:x86-64
-target remote localhost:26366
+target remote localhost:27016
 c

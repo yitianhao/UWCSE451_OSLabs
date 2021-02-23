@@ -113,7 +113,7 @@ void sbrktest(void) {
   lastaddr = (char *)(BIG - 1);
   *lastaddr = 99;
 
-  // can we read the kernel's memory? 
+  // can we read the kernel's memory?
   printf(stdout, "pids 4-43 (6-45 if ran after sh) should be killed with trap 14 err 5\n");
   for (a = (char *)(KERNBASE); a < (char *)(KERNBASE + 2000000); a += 50000) {
     pid = fork();
@@ -135,7 +135,6 @@ void sbrktest(void) {
       free_pages = info.free_pages;
       // printf(stdout, "free pages before sbrk: %d\n", free_pages);
       c = sbrk(BIG);
-      printf(stdout, "%d\n", c);
     } while ((c = sbrk(BIG)) != (char *) -1);
     sysinfo(&info);
     printf(stdout, "free pages after out-of-memory(shouldn't be 0): %d\n", info.free_pages);

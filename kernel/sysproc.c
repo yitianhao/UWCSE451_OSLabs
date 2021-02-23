@@ -57,12 +57,15 @@ int sys_sbrk(void) {
 
   if (argint(0, &n) < 0) return -1;
   if (n < 0) n = 0;
-  n = sbrk(n);
-  if (n == -1) {
+  struct vspace vs = myproc()->vspace;
+  if (vs.regions[VR_USTACK].va_base - 10 * PGSIZE  // stack limit
+      <= vs.regions[VR_HEAP].va_base + vs.regions[VR_HEAP].size + n ||
+      vs.regions[VR_USTACK].va_base - 10 * PGSIZE
+      <= PGROUNDUP(vs.regions[VR_HEAP].va_base + vs.regions[VR_HEAP].size)) {  // projected upper bound
+    cprintf("***too big to allocate\n");
     return -1;
-  } else {
-    return n;
   }
+  return sbrk(n);
 }
 
 int sys_sleep(void) {

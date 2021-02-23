@@ -161,6 +161,7 @@ int grow_user_stack_ondemand(uint64_t addr) {
   struct vregion* stack = &(myproc()->vspace.regions[VR_USTACK]);
   uint64_t prev_limit = stack->va_base - stack->size;
   uint64_t n = PGROUNDUP(prev_limit - addr);
+  if (stack->size + n >= 10 * PGSIZE) return -1;
   // vregionaddmap handles everything including rounding to see if calling kalloc is needed
   int size = vregionaddmap(stack, prev_limit - n, n, VPI_PRESENT, VPI_WRITABLE);
   if (size < 0) return -1;

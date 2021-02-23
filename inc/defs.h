@@ -145,6 +145,7 @@ int                 vregionaddmap(struct vregion *, uint64_t, uint64_t, short, s
 int                 vregiondelmap(struct vregion *, uint64_t, uint64_t);
 int                 vspacemapregions(struct vspace* child, struct vspace* parent);
 int                 vspace_copy_on_write(struct vspace* vs, uint64_t va);
+void                vspacefree_wo_pgtbl(struct vspace *vs);
 
 // picirq.c
 void picenable(int);
