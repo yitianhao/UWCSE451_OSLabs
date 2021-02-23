@@ -88,13 +88,11 @@ vregionaddmap(struct vregion *vr, uint64_t from_va, uint64_t sz, short present, 
   for (a = PGROUNDUP(from_va); a < from_va + sz; a += PGSIZE) {
     if (!(vpi = va2vpage_info(vr, a)))
       goto addmap_failure;
-    
-    acquire(&vpi->lock);
     mem = kalloc();
     if (!mem)
       goto addmap_failure;
     memset(mem, 0, PGSIZE);
-
+    acquire(&vpi->lock);
     vpi->used = 1;
     vpi->present = present;
     vpi->writable = writable;
@@ -104,7 +102,6 @@ vregionaddmap(struct vregion *vr, uint64_t from_va, uint64_t sz, short present, 
   return sz;
 
 addmap_failure:
-  release(&vpi->lock);
   for (a -= PGSIZE; a >= PGROUNDUP(from_va); a -= PGSIZE) {
     assertm(vpi = va2vpage_info(vr, a), "vpi info missing");
     kfree(P2V(vpi->ppn << PT_SHIFT));
