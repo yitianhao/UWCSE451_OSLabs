@@ -488,7 +488,6 @@ struct proc *findproc(int pid)
 // implemented for lab3: user heap
 int sbrk(int n) {
   struct vregion* heap = &(myproc()->vspace.regions[VR_HEAP]);
-  struct vregion* stack = &(myproc()->vspace.regions[VR_USTACK]);
   uint64_t prev_brk = heap->size + heap->va_base;
   // vregionaddmap handles everything including rounding to see if calling kalloc is needed
   int size = vregionaddmap(heap, prev_brk, n, VPI_PRESENT, VPI_WRITABLE);
