@@ -50,5 +50,5 @@ page table.
 Question #7
 For each member of the project team, how many hours did you
 spend on this lab?
-Yitian Hao: 12.5h
-Kelvin Fang: 10 hrs
+Yitian Hao: 18h
+Kelvin Fang: 16 hrs
