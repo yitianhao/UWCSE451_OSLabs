@@ -73,11 +73,12 @@ int exec(char *path, char **argv) {
   p->tf->rip = first_instruction;
 
   // 8. copying vs over to current process and install the process
-  struct vspace old_vs = p->vspace;
-  p->vspace = vs;
-  vspaceinvalidate(&p->vspace);
+  if (vspacecopy(&p->vspace, &vs) != 0) {
+    vspacefree(&vs);
+    return -1;
+  }
+  vspacefree(&vs);
   vspaceinstall(p);
-  vspacefree(&old_vs);
 
   return 0;
 }

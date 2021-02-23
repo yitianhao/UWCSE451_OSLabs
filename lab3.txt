@@ -1,7 +1,8 @@
 Question #1
 Why might an application prefer using malloc and free instead of using sbrk directly?
 - It's always good to have some "interface" that is easy to use for users.
-- We don't want user to have access to the virtual memory, etc.
+- We want to have a layer of abstraction so that user will not have any chance to visualize
+  the mapping between VM and PM.
 
 Question #2:
 Explain how the file descriptors of ls and wc change when the user types ls | wc
@@ -25,15 +26,19 @@ operation versus a stray pointer dereference that
 should cause the application to halt? What should happen, for example, if
 an application calls a procedure with a local variable that is an array
 of a million integers?
-We will check the address. The benchmark is the stack address should in the bound
-of [SZ_2G - 10 * PGSIZE, SZ_2G)
+We will check the address. The benchmark is the stack address should be in the bound
+of [SZ_2G - 10 * PGSIZE, SZ_2G). If more space is needed, user should put them in the
+heap. Anything that goes beyond stack limit will cause stack overflow.
 
 Question #5:
 Is it possible to reduce the user stack size at
 run-time (i.e., to deallocate the user stack when a procedure with a
 large number of local variables goes out of scope)?  If so, sketch how that
 might work.
-???
+Yes, we can have a pointer that points to the top of the stack. We partition stack into blocks
+based on their function calls. When a function returns, the stack associated with  the function will be popped
+(i.e. the stack pointer will point to the stack boundary of the function that called the returning function).
+After the pointer shifted, OS could step in and check if there is any free pages that could be thrown away.
 
 Question #6:
 The TLB caches the page table entries of recently referenced
@@ -46,4 +51,4 @@ Question #7
 For each member of the project team, how many hours did you
 spend on this lab?
 Yitian Hao: 12.5h
-Kelvin Fang:
+Kelvin Fang: 10 hrs
