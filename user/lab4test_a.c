@@ -64,13 +64,13 @@ void append(void) {
   printf(stdout, "append...\n");
 
   old_size = strlen(buf);
-  
+
   fd = open("small.txt", O_RDWR);
   if (fd < 0) {
     error("Could not open small.txt with RW permissions");
   }
 
-  // Advance the fd offset to 1 less than the size of file. 
+  // Advance the fd offset to 1 less than the size of file.
   char garbo[old_size];
   int n = read(fd, &garbo, old_size - 1);
   if (n != old_size - 1) {
@@ -107,7 +107,7 @@ void filecreation(void) {
 
   if ((fd = open("create.txt", O_CREATE|O_RDWR)) < 0)
     error("create 'create.txt' failed");
-    
+
   close(fd);
 
   // Reopen and write 1 byte.
@@ -132,7 +132,7 @@ void filecreation(void) {
 
   // Ensure read got the correct value.
   assert(buf[0] == 1);
-  
+
   printf(1, "filecreation ok\n");
 
 }
@@ -140,14 +140,14 @@ void filecreation(void) {
 
 // Creates a file, writes and reads data.
 // Data is written and read by 500 bytes to try
-// and catch errors in writing. 
+// and catch errors in writing.
 void onefile(void) {
   int fd, i, j;
   printf(1, "onefile...\n");
 
   if ((fd = open("onefile.txt", O_CREATE|O_RDWR)) < 0)
     error("create 'onefile.txt' failed");
-    
+
   close(fd);
   if ((fd = open("onefile.txt", O_RDWR)) < 0)
     error("open 'onefile.txt' after creation failed");
@@ -166,8 +166,10 @@ void onefile(void) {
   for (i = 0; i < 10; i++) {
     if (read(fd, buf, 500) != 500)
       error("couldn't read the bytes for iteration %d", i);
-    for (j = 0; j < 500; j++)
+
+    for (j = 0; j < 500; j++) {
       assert(i == buf[j]);
+    }
   }
 
   printf(1, "onefile ok\n");
@@ -234,6 +236,106 @@ void fourfiles(void) {
   printf(1, "fourfiles ok\n");
 }
 
+void simpledelete() {
+  printf(1, "Starting delete test...\n");
+  // Check a couple cases of things you should never be able to delete
+  if (unlink("file_not_existing") != -1) {
+    error("Able to delete file that doesn't exist");
+  }
+  if (unlink("..") != -1 || unlink(".") != -1)
+    error("Able to unlink directories");
+
+  // Can't delete open file (in this process or another)
+  char* name = "some_other_file";
+  int fd = open(name, O_RDWR | O_CREATE);
+  if (fd == -1)
+    error("Unable to create file");
+  if (unlink(name) != -1)
+    error("Able to delete file that's currently open");
+  if (close(fd) == -1)
+      error("Unable to close file");
+
+  int pid = fork();
+  if (pid == 0) {
+    open(name, O_RDWR);
+    sleep(999999999);
+    exit();
+  } else {
+    sleep(20); // Should be enough time
+    if (unlink(name) != -1)
+      error("Able to delete file that's open in another process");
+    kill(pid);
+    wait();
+  }
+  if (unlink(name) == -1)
+    error("Unable to delete file once all references closed");
+  if (open(name, O_RDWR) != -1)
+    error("Able to open already-deleted file");
+
+  printf(1, "  delete open ok\n");
+
+  // Make sure deleting one file doesn't interfere with other open ones
+  char* n1 = "small.txt";
+  char* n2 = "arbitrary";
+  int fdn1 = open(n1, O_RDWR);
+  int fdn2 = open(n2, O_RDWR | O_CREATE);
+  close(fdn2);
+  unlink(n2);
+  read(fdn1, buf, 62);
+  if (strcmp(buf, "lab5 is the last 451 lab, but this is just the beginning :(\n") != 0)
+    error("file content did not match expected, was: '%s'", buf);
+
+  // Check inum usage/reuse and ordering
+  struct stat ss;
+  int fd1 = open("df1", O_RDWR | O_CREATE);
+  if (fstat(fd1, &ss) == -1)
+    error("Unable to stat open file");
+  int in1 = ss.ino;
+  int fd2 = open("df2", O_RDWR | O_CREATE);
+  if (fstat(fd2, &ss) == -1)
+    error("Unable to stat open file");
+  int in2 = ss.ino;
+  close(fd1);
+  unlink("df1");
+  int fd3 = open("df3", O_RDWR | O_CREATE);
+  if (fstat(fd3, &ss) == -1)
+    error("Unable to stat open file");
+  int in3 = ss.ino;
+  printf(1, "%d  %d  %d", in1, in2, in3);
+  if (in3 != in1 || in3 == in2)
+    error("File allocation does not reuse inums");
+  int fd4 = open("df4", O_RDWR | O_CREATE);
+  if (fstat(fd4, &ss) == -1)
+    error("Unable to stat open file");
+  int in4 = ss.ino;
+
+  if (in4 == in3 || in4 == in1 || in4 != in2 + 1)
+    error("File allocation improperly finds inums");
+  close(fd2);
+  close(fd3);
+  close(fd4);
+  unlink("df2");
+  unlink("df3");
+  unlink("df4");
+
+  // You should not be able to read from a deleted file
+  for (int i = 0; i < 8; ++i)
+    buf[i] = i + 1;
+  fd = open("file", O_RDWR | O_CREATE);
+  write(fd, buf, 8);
+  for (int i = 0; i < 8; ++i)
+    buf[i] = 0;
+  close(fd);
+  unlink("file");
+  fd = open("file", O_RDWR | O_CREATE);
+  int r = read(fd, buf, 8);
+  if (r > 0)
+    error("Able to read from fresh file");
+  close(fd);
+  unlink("file");
+  printf(1, "  simple deletion ok\n");
+}
+
 int main(int argc, char *argv[]) {
   printf(stdout, "lab4test_a starting\n");
   overwrite();
@@ -241,8 +343,7 @@ int main(int argc, char *argv[]) {
   filecreation();
   onefile();
   fourfiles();
-
+  simpledelete();
   printf(stdout, "lab4test_a passed!\n");
   exit();
 }
-

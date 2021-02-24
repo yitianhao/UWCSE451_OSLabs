@@ -126,7 +126,7 @@ void concurrent_create_test() {
   assert(read(fd, buf, 1) == 0);
   assert(close(fd) >= 0);
 
-  printf(stdout, "cocurrent create test OK\n");
+  printf(stdout, "concurrent create test OK\n");
 }
 
 void concurrent_write_test() {
@@ -184,7 +184,7 @@ void concurrent_write_test() {
     if (map[i] != 100)
       error("missing byte from child %d", i);
   }
-  printf(stdout, "cocurrent write test OK\n");
+  printf(stdout, "concurrent write test OK\n");
 }
 
 void concurrent_read_test() {
@@ -237,7 +237,79 @@ void concurrent_read_test() {
   assert(read(fd, buf, 1) == 0);
   assert(close(fd) >= 0);
 
-  printf(stdout, "cocurrent read test OK\n");
+  printf(stdout, "concurrent read test OK\n");
+}
+
+void concurrent_delete_test() {
+  int pipes[2];
+  pipe(pipes);
+  char buf[2];
+  int fd = open("cc_del", O_RDWR | O_CREATE);
+  if (fd < 0)
+    error("open failed");
+
+  for (int i = 0; i < 50; ++i) {
+    int pid = fork();
+    if (pid != 0)
+      continue;
+    if (unlink("cc_del") != -1)
+      write(pipes[1], &buf, 1);
+    exit();
+  }
+  for (int i = 0; i < 50; ++i)
+    wait();
+  close(pipes[1]);
+  if (2 == read(pipes[0], &buf, 2))
+    error("File deleted multiple times");
+ printf(stdout, "concurrent delete test OK\n");
+
+}
+
+void printBar(int count, bool backspace) {
+  if (backspace)
+    for (int i = 0; i < 100 + 2; ++i)
+      printf(1, "\b");
+  printf(1, "[");
+  for (int i = 0; i < 100; ++i)
+    if (i < count)
+      printf(1, "#");
+    else printf(1, " ");
+  printf(1, "]");
+
+}
+
+void delete_stress_test() {
+  int fd0 = open("ddf1", O_RDWR | O_CREATE);
+  char buf[128];
+  char* text = "This is the data that goes into the file created here.";
+  // overwrite the last char, and append data.
+  int n = write(fd0, text, strlen(text));
+  if (n < 0)
+    error("write failed");
+
+  close(fd0);
+  fd0 = open("ddf1", O_RDONLY);
+  // You better be reclaiming everything......
+  printf(1, "starting delete stress test...\n");
+  printBar(0, false);
+  for (int i = 1; i <= 100000; ++i) {
+    int fd = open("file", O_RDWR | O_CREATE);
+    if (fd == -1)
+      error("Unable to open file on %d", i);
+    if (close(fd) == -1)
+      error("Unable to close file on %d", i);
+    if (unlink("file") == -1)
+      error("Unable to unlink file on %d", i);
+   if (i % 1000 == 0)
+      printBar(i / 1000, true);
+  }
+
+  read(fd0, &buf, strlen(text));
+  if (strcmp(buf, text) != 0)
+    error("Bad. %s  //  %s\n", buf, text);
+
+  printf(1, "\ndelete stress test OK\n");
+
 }
 
 int main(int argc, char *argv[]) {
@@ -247,7 +319,8 @@ int main(int argc, char *argv[]) {
   concurrent_create_test();
   concurrent_write_test();
   concurrent_read_test();
-
+  concurrent_delete_test();
+  delete_stress_test();
   printf(stdout, "lab4test_b passed!\n");
   exit();
 }

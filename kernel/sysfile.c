@@ -247,3 +247,22 @@ int sys_pipe(void)
   }
   return pipe_open(res);
 }
+
+/*
+ * arg0: char * [path to the file]
+ *
+ * Given a pathname for a file, if no process has an open reference to the
+ * file, sys_unlink() removes the file from the file system.
+ *
+ * On success, returns 0. On error, returns -1.
+ *
+ * Errors:
+ * arg0 points to an invalid or unmapped address
+ * there is an invalid address before the end of the string
+ * the file does not exist
+ * the file currently has an open reference
+ */
+int sys_unlink(void) {
+  // LAB 4
+  return -1;
+}
