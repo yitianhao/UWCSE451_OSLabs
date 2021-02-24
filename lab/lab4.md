@@ -1,6 +1,6 @@
 # Lab 4: Filesystem
-**Design Doc Due: 12/04/20 at 11:59pm. \
-Complete Lab Due: 12/11/20 at 11:59pm.**
+**Design Doc Due: 2/26/21 (Friday) at 11:59pm. \
+Complete Lab Due: 3/12/21 (Friday) at 11:59pm.**
 
 ## Introduction
 A restriction on the file system behavior in previous labs is that
@@ -130,14 +130,43 @@ with the given permission.
 You need to create a empty inode on disk, change the root directory to add a
 link to the new file, and (depending on your disk layout) change bitmap on
 disk. The inode file length itself will change, so don't forget to update this
-as well. One of the benefits of implementing appending to a file is that you
-can repurpose that to append the `inodefile`.
+as well.
 
-*Note*: File deletion is not required.
+### Delete files
+Finally, you will need to support deleting files from the root directory
+with the `unlink` system call. If no processes have a reference to the 
+given filename, then the file is deleted and the space it was using should
+be made available for reuse. If there is an open reference to the file or
+the given filename does not exist in the file system, `unlink` should return
+an error.
+
+Note, supporting file deletion means that the inodefile may become fragmented.
+Your file creation should be able to fill holes from deleted files (as opposed
+to appending to the end of the inodefile each time).
+
+### What To Implement
+```c
+/*
+ * arg0: char * [path to the file]
+ * 
+ * Given a pathname for a file, if no process has an open reference to the
+ * file, sys_unlink() removes the file from the file system.
+ *
+ * On success, returns 0. On error, returns -1.
+ *
+ * Errors:
+ * arg0 points to an invalid or unmapped address
+ * there is an invalid address before the end of the string
+ * the file does not exist
+ * the file currently has an open reference
+ */
+int sys_unlink(void);
+```
 
 ### Exercise
-Enable writes to file system, appending to the end of a file, and creation of
-files. All tests in `lab4test_a.c` should pass when run from the shell.
+Enable writes to file system, appending to the end of a file, creation of
+files, and deletion of files. All tests in `lab4test_a.c` should pass
+when run from the shell.
 
 Expected Output:
 ```
@@ -153,6 +182,9 @@ onefile...
 onefile ok
 fourfiles...
 fourfiles ok
+Starting delete test...
+  delete open ok
+  simple deletion ok
 lab4test_a passed!
 ```
 
@@ -179,6 +211,9 @@ lock(`locki()`) before the block lock(acquired by calling `bread()`) if you
 need to hold those two locks at the same time. This way, you would never run
 into a deadlock.
 
+*Note*: The delete stress test will take a significant amount of time to
+complete - this is expected.
+
 ### Exercise
 Add synchronization support to Part A. All tests in `lab4test_b.c` should pass
 when run from the shell.
@@ -188,9 +223,13 @@ Expected Output:
 $ lab4test_b
 lab4test_b starting
 concurrent dup test OK
-cocurrent create test OK
-cocurrent write test OK
-cocurrent read test OK
+concurrent create test OK
+concurrent write test OK
+concurrent read test OK
+concurrent delete test OK
+starting delete stress test...
+[####################################################################################################]
+delete stress test OK
 lab4test_b passed!
 ```
 
