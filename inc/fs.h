@@ -1,6 +1,7 @@
 #pragma once
 
 #include "extent.h"
+#include <sleeplock.h>
 
 // On-disk file system format.
 // Both the kernel and user programs use this header file.
@@ -20,6 +21,7 @@ struct superblock {
   uint nblocks;    // Number of data blocks
   uint bmapstart;  // Block number of first free map block
   uint inodestart; // Block number of the start of inode file
+  struct sleeplock lock;
 };
 
 // On-disk inode structure

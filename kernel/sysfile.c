@@ -220,7 +220,7 @@ int sys_open(void)
   }
 
   // make sure the mode is read only
-  if (mode == O_CREATE || (mode == O_RDWR && strncmp(path, "console", 8) != 0) || (mode == O_WRONLY && strncmp(path, "console", 8) != 0))
+  if ((mode == O_RDWR && strncmp(path, "console", 8) != 0) || (mode == O_WRONLY && strncmp(path, "console", 8) != 0))
   {
     return -1;
   }

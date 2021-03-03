@@ -31,6 +31,7 @@ void readsb(int dev, struct superblock *sb) {
 
   bp = bread(dev, 1);
   memmove(sb, bp->data, sizeof(*sb));
+  initsleeplock(&sb.lock, "sb lock");
   brelse(bp);
 }
 
@@ -428,5 +429,120 @@ struct inode *namei(char *path) {
 
 struct inode *nameiparent(char *path, char *name) {
   return namex(path, 1, name);
+}
+
+// create file, return 0 on success, -1 on error i.e. disk is full
+int file_create(char* path) {
+  if (namei(path) != 0) {
+    return;
+  }
+  struct dinode dip;
+  uint inum;
+  int written;
+  acquiresleep(&sb.lock);
+  // find first free dinode struct
+  for (inum = 2; inum < icache.inodefile.size / sizeof(dip); inum++) {
+    read_dinode(inum, &dip);
+    if (dip.type == 0) {
+      break;
+    }
+  }
+  // offset we need to write to
+  uint offset = INODEOFF(inum);
+
+  if (offset >= icache.inodefile.size) {  // we will need to extent the file
+    // 1. write to the file and update bitmap as well
+    dip.size = 0;
+    dip.type = 0;
+    written = concurrent_writei(&icache.inodefile, (char*) &dip, offset, sizeof(dip));
+    if (written != sizeof(dip)) {
+      releasesleep(&sb.lock);
+      return -1;
+    }
+  }
+  // find the first free extent region for us to write on the given device
+  int free_extent_num = find_free_extent_block(dip.devid);
+  if (free_extent_num == -1) {
+    // no more free space for file
+    // return err
+    releasesleep(&sb.lock);
+    return -1;
+  }
+  dip.size = 0;
+  dip.type = T_FILE;
+
+  // subject to change after we finalize how to extent
+  dip.data.nblocks = 1;
+  dip.data.startblkno = (uint) free_extent_num;
+
+  // update file_inode
+  written = concurrent_writei(&icache.inodefile, (char*) &dip, offset, sizeof(dip));
+  if (written != sizeof(dip)) {
+      releasesleep(&sb.lock);
+      return -1;
+  }
+  // update bitmap
+  update_bit_map(dip.devid, (uint) free_extent_num, 1);
+  
+  // connect to directory
+  // find inode of root dir
+  struct inode* dir = iget(dip.devid, ROOTINO);
+  // calculate offset
+  offset = inum * sizeof(struct dirent);
+  // populate dirent struct and write of disk
+  struct dirent new_file;
+  new_file.inum = inum;
+  for (int i = 0; i < DIRSIZ; i++) {
+    new_file.name[i] = path[i];
+    if (path[i] == '\0') {
+      break;
+    }
+  }
+  written = concurrent_writei(&dir, (char*) &new_file, offset, sizeof(struct dirent));
+  if (written != sizeof(dip)) {
+      releasesleep(&sb.lock);
+      return -1;
+  }
+  releasesleep(&sb.lock);
+  return 0;
+}
+
+// using bitmap to find the first 
+int find_free_extent_block(uint dev) {
+  int start = sb.inodestart;
+  for (uint curr = BBLOCK(sb.inodestart, sb); curr < sb.inodestart; curr++) {
+    struct buf* content = bread(dev, curr);
+    for (int i = 0; i < BSIZE; i++) {  // check 8 blks by 8 blks
+      uchar byte = content->data[i];
+      for (int j = 0; j < 8; i++) {  // check blk by blk
+        if (byte & 1 == 0) {  // if it is 0, i.e. free
+          return start + j + i * 8;
+        }
+        byte >> 1;
+      }
+    }
+    start += BPB;
+  }
+  return -1;
+}
+
+// update blk_num in bitmap to be used if status = 1
+// to be free if status = 0
+void update_bit_map(uint dev, uint blk_num, uint status) {
+  // 1.1 find the block that 'blk_num' is in
+  uint bitblk = blk_num / (BSIZE * 8);
+  blk_num = blk_num % (BSIZE * 8);
+  // 1.2 find the offset
+  uint offset = blk_num / 8;
+  blk_num = blk_num % 8;
+  // 1.3 find the bit in the byte
+  uint bit_num = blk_num;
+
+  // 2. load correct block from disk
+  struct buf* content = bread(dev, bitblk + sb.bmapstart);
+  // 3. update the bit  (can change to if/else, based on implementation of other functions)
+  content->data[offset] = content->data[offset] ^ (1 << (bit_num));
+  // 4. write to disk
+  bwrite(content);
 }
 
