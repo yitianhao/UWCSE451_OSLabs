@@ -19,6 +19,7 @@ struct inode
   short type; // copy of disk inode
   short devid;
   uint size;
+  uint max_size;
   struct extent data;
 };
 

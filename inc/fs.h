@@ -29,8 +29,9 @@ struct dinode {
   short type;         // File type
   short devid;        // Device number (T_DEV only)
   uint size;          // Size of file (bytes)
+  uint max_size;
   struct extent data; // Data blocks of file on disk
-  char pad[46];       // So disk inodes fit contiguosly in a block
+  char pad[42];       // So disk inodes fit contiguosly in a block
 };
 
 // offset of inode in inodefile

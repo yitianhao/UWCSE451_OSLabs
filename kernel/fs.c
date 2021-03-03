@@ -304,7 +304,33 @@ int writei(struct inode *ip, char *src, uint off, uint n) {
     return devsw[ip->devid].write(ip, src, n);
   }
   // read-only fs, writing to inode is an error
-  return -1;
+  uint new_size = off + n;
+  if (new_size > ip->max_size) {
+    // some way to append a new block
+  }
+  uint offset = off;
+  uint written_sofar = 0;
+  uint curr_blk_index = off / BSIZE;
+  for (uint written = 0; written < (n + offset + BSIZE - 1) / BSIZE; written++) {
+    // 1. find how much that I need to write
+    uint to_write_size = n % (BSIZE - off);
+    // 2. load the block
+    // we need a function that translate index of block to blk_num
+    uint blk_num = index_to_blknum(ip, curr_blk_index);  // smth we need to implement
+    struct buf* buffer = bget(ip->devid, blk_num);
+    memmove((buffer->data + off % BSIZE), src, to_write_size);
+    if (log_write(ip, buffer)) {
+      // write to log and then to disk
+      // need to tell if the write was successful
+      written_sofar += to_write_size;
+    } else {
+      // fail to write
+      return written_sofar;
+    }
+    off = 0;
+    curr_blk_index++;
+  }
+  return written_sofar;
 }
 
 // Directories
@@ -337,7 +363,6 @@ struct inode *dirlookup(struct inode *dp, char *name, uint *poff) {
       return iget(dp->dev, inum);
     }
   }
-
   return 0;
 }
 
@@ -544,5 +569,6 @@ void update_bit_map(uint dev, uint blk_num, uint status) {
   content->data[offset] = content->data[offset] ^ (1 << (bit_num));
   // 4. write to disk
   bwrite(content);
+  brelse(content);
 }
 
