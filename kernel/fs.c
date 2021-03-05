@@ -294,6 +294,9 @@ int concurrent_writei(struct inode *ip, char *src, uint off, uint n) {
 // Returns number of bytes written.
 // Caller must hold ip->lock.
 int writei(struct inode *ip, char *src, uint off, uint n) {
+  uint tot, m;
+  struct buf *bp;
+
   if (!holdingsleep(&ip->lock))
     panic("not holding lock");
 
@@ -302,8 +305,28 @@ int writei(struct inode *ip, char *src, uint off, uint n) {
       return -1;
     return devsw[ip->devid].write(ip, src, n);
   }
-  // read-only fs, writing to inode is an error
-  return -1;
+
+  if (off > ip->size || off + n < off)
+    return -1;
+
+  for (tot = 0; tot < n; tot += m, off += m, src += m) {
+    bp = bread(ip->dev, ip->data.startblkno + off / BSIZE);
+    m = min(n - tot, BSIZE - off % BSIZE);
+    memmove(bp->data + off % BSIZE, src, m);
+    bwrite(bp);
+    brelse(bp);
+  }
+
+  if (off > ip->size) {
+    // update in-memory inode
+    ip->size = off;
+    // update dinode on disk
+    struct dinode disk_ip;
+    read_dinode(ip->inum, &disk_ip);
+    disk_ip.size = ip->size;
+  }
+
+  return n;
 }
 
 // Directories
