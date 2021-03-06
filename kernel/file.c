@@ -31,15 +31,18 @@ static void data_transfer(char* src, char* dest, size_t n);
 // need initialization??? saw similar functions: finit, binit
 int file_open(char *path, int mode)
 {
-  if (mode == O_CREATE) {
-    file_create(path);
+  if (mode == 0x200) {
+    if (file_create(path) == -1) {
+      panic("failed to create");
+    }
   }
   // get the inode pointer of this file
   // namei call namex, which already has inode locked
   struct inode *ip;
-  if ((ip = namei(path)) == 0)
+  if ((ip = namei(path)) == 0) {
+    panic("failed to load file");
     return -1;
-
+  }
   // get the current process
   struct proc *process = myproc();
 

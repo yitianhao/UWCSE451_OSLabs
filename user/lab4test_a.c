@@ -343,7 +343,7 @@ int main(int argc, char *argv[]) {
   filecreation();
   onefile();
   fourfiles();
-  simpledelete();
+  //simpledelete();
   printf(stdout, "lab4test_a passed!\n");
   exit();
 }

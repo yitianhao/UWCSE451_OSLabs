@@ -31,7 +31,6 @@ void readsb(int dev, struct superblock *sb) {
 
   bp = bread(dev, 1);
   memmove(sb, bp->data, sizeof(*sb));
-  initsleeplock(&sb.lock, "sb lock");
   brelse(bp);
 }
 
@@ -71,6 +70,9 @@ struct {
   struct inode inode[NINODE];
   struct inode inodefile;
 } icache;
+
+static int find_free_extent_block(uint dev);
+static void update_bit_map(uint dev, uint blk_num, uint status);
 
 // Find the inode file on the disk and load it into memory
 // should only be called once, but is idempotent.
@@ -124,6 +126,18 @@ static void read_dinode(uint inum, struct dinode *dip) {
   if (!holding_inodefile_lock)
     unlocki(&icache.inodefile);
 
+}
+
+// Update dinode
+static void write_dinode(uint inum, struct dinode* dip) {
+  int holding_inodefile_lock = holdingsleep(&icache.inodefile.lock);
+  if (!holding_inodefile_lock)
+    locki(&icache.inodefile);
+  
+  writei(&icache.inodefile, (char *)dip, INODEOFF(inum), sizeof(*dip));
+
+  if (!holding_inodefile_lock)
+    unlocki(&icache.inodefile);
 }
 
 // Find the inode with number inum on device dev
@@ -297,6 +311,7 @@ int concurrent_writei(struct inode *ip, char *src, uint off, uint n) {
 // Returns number of bytes written.
 // Caller must hold ip->lock.
 int writei(struct inode *ip, char *src, uint off, uint n) {
+  uint tot, m;
   if (!holdingsleep(&ip->lock))
     panic("not holding lock");
 
@@ -306,33 +321,51 @@ int writei(struct inode *ip, char *src, uint off, uint n) {
     return devsw[ip->devid].write(ip, src, n);
   }
   // read-only fs, writing to inode is an error
-  uint new_size = off + n;
-  if (new_size > ip->max_size) {
+  uint new_size = max((off + n), ip->size);
+  if (new_size > ip->data.nblocks * BSIZE) {
     panic("Exceeding Max Size");
   }
-  uint offset = off;
-  uint written_sofar = 0;
-  uint curr_blk_index = off / BSIZE;
-  for (uint written = 0; written < (n + offset + BSIZE - 1) / BSIZE; written++) {
-    // 1. find how much that I need to write
-    uint to_write_size = n % (BSIZE - off);
-    // 2. load the block
-    // we need a function that translate index of block to blk_num
-    uint blk_num = index_to_blknum(ip, curr_blk_index);  // smth we need to implement
-    struct buf* buffer = bget(ip->devid, blk_num);
-    memmove((buffer->data + off % BSIZE), src, to_write_size);
-    if (log_write(ip, buffer)) {
-      // write to log and then to disk
-      // need to tell if the write was successful
-      written_sofar += to_write_size;
-    } else {
-      // fail to write
-      return written_sofar;
-    }
-    off = 0;
-    curr_blk_index++;
+  // for (uint written = 0; written < (n + offset + BSIZE - 1) / BSIZE; written++) {
+  //   // 1. find how much that I need to write
+  //   uint to_write_size = n % (BSIZE - off);
+  //   // 2. load the block
+  //   // we need a function that translate index of block to blk_num
+  //   uint blk_num = curr_blk_index + ip->data.startblkno;  // smth we need to implement
+  //   struct buf* buffer = bread(ip->devid, blk_num);
+  //   memmove((buffer->data + off % BSIZE), src, to_write_size);
+  //   // if (log_write(ip, buffer)) {
+  //   //   // write to log and then to disk
+  //   //   // need to tell if the write was successful
+  //   //   written_sofar += to_write_size;
+  //   // } else {
+  //   //   // fail to write
+  //   //   return written_sofar;
+  //   // }
+  //   bwrite(buffer);
+  //   brelse(buffer);
+  //   off = 0;
+  //   n -= to_write_size;
+  //   curr_blk_index++;
+  //   written_sofar += to_write_size;
+  // }
+  for (tot = 0; tot < n; tot += m, off += m, src += m) {
+    struct buf* bp = bread(ip->dev, ip->data.startblkno + off / BSIZE);
+    m = min(n - tot, BSIZE - off % BSIZE);
+    memmove(bp->data + off % BSIZE, src, m);
+    bwrite(bp);
+    brelse(bp);
   }
-  return written_sofar;
+
+
+  // update inodefile
+  if (ip->inum != icache.inodefile.inum) {
+    struct dinode di;
+    read_dinode(ip->inum, &di);
+    di.size = new_size;
+    write_dinode(ip->inum, &di);
+    ip->valid = 0;
+  }
+  return n;
 }
 
 // Directories
@@ -474,19 +507,7 @@ int file_create(char* path) {
       break;
     }
   }
-  // offset we need to write to
-  uint offset = INODEOFF(inum);
 
-  if (offset >= icache.inodefile.size) {  // we will need to extent the file
-    // 1. write to the file and update bitmap as well
-    dip.size = 0;
-    dip.type = 0;
-    written = writei(&icache.inodefile, (char*) &dip, offset, sizeof(dip));
-    if (written != sizeof(dip)) {
-      unlocki(&icache.inodefile);
-      return -1;
-    }
-  }
   // find the first free extent region for us to write on the given device
   int free_extent_num = find_free_extent_block(dip.devid);
   if (free_extent_num == -1) {
@@ -504,11 +525,7 @@ int file_create(char* path) {
   dip.max_size = DEFAULTBLK * BSIZE;
 
   // update file_inode
-  written = writei(&icache.inodefile, (char*) &dip, offset, sizeof(dip));
-  if (written != sizeof(dip)) {
-      unlocki(&icache.inodefile);
-      return -1;
-  }
+  write_dinode(inum, &dip);
   // update bitmap
   for (int i = 0; i < DEFAULTBLK; i++) {
     update_bit_map(dip.devid, (uint) free_extent_num, 1);
@@ -517,7 +534,7 @@ int file_create(char* path) {
   // find inode of root dir
   struct inode* dir = iget(dip.devid, ROOTINO);
   // calculate offset
-  offset = inum * sizeof(struct dirent);
+  uint offset = inum * sizeof(struct dirent);
   // populate dirent struct and write of disk
   struct dirent new_file;
   new_file.inum = inum;
@@ -527,7 +544,7 @@ int file_create(char* path) {
       break;
     }
   }
-  written = concurrent_writei(&dir, (char*) &new_file, offset, sizeof(struct dirent));
+  written = concurrent_writei(dir, (char*) &new_file, offset, sizeof(struct dirent));
   if (written != sizeof(dip)) {
       unlocki(&icache.inodefile);
       return -1;
@@ -537,18 +554,18 @@ int file_create(char* path) {
 }
 
 // using bitmap to find the first 
-int find_free_extent_block(uint dev) {
+static int find_free_extent_block(uint dev) {
   int start = sb.inodestart;
   for (uint curr = BBLOCK(sb.inodestart, sb); curr < sb.inodestart; curr++) {
     struct buf* content = bread(dev, curr);
     for (int i = 0; i < BSIZE; i++) {  // check 8 blks by 8 blks
       uchar byte = content->data[i];
       for (int j = 0; j < 8; i++) {  // check blk by blk
-        if (byte & 1 == 0) {  // if it is 0, i.e. free
+        if ((byte & 1) == 0) {  // if it is 0, i.e. free
           int count = 1;
           uchar b = byte;
           for (int k = j; k < 8; k++) {
-            if (b & 1 == 0) {
+            if ((b & 1) == 0) {
               count++;
             }
             b = b >> 1;
@@ -558,7 +575,7 @@ int find_free_extent_block(uint dev) {
           }
           b = content->data[i + 3];
           for (int k = j; k > 0; k--) {
-            if (b & 1 == 0) {
+            if ((b & 1) == 0) {
               count++;
             }
             b = b >> 1;
@@ -577,7 +594,7 @@ int find_free_extent_block(uint dev) {
 
 // update blk_num in bitmap to be used if status = 1
 // to be free if status = 0
-void update_bit_map(uint dev, uint blk_num, uint status) {
+static void update_bit_map(uint dev, uint blk_num, uint status) {
   // 1.1 find the block that 'blk_num' is in
   uint bitblk = blk_num / (BSIZE * 8);
   blk_num = blk_num % (BSIZE * 8);
