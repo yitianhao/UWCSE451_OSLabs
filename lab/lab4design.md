@@ -90,7 +90,7 @@ The goal of this lab:
 ### NOTE:
   - Since we are repeating a lot of stpes, we could write a few helper functions that update bitmap, inodefile and directory
 
-### Part 5: Logging layer
+### Pat 5: Logging layer
   - book keeping:
     - in `superblock`, add `uint logstart`
     - make a log_data struct with the following fields for disk
@@ -105,7 +105,7 @@ The goal of this lab:
       - `struct log_data array[8]`
   - in `mkfs.c`: update to add new log part for the disk, the log part will be placed
   in between of superblock and bitmap
-  - `log_write()`: write to log
+  - `log_write(inode*, new_size, buffer)`: write to log
     - populate the block returned by `read_log_struct`:
       - find a free block (`commit_flag == 0`) in the log part, set the block number to `data_ptr`
       - use `bwrite` to write data from input to the block on disk with block number equals to `data_ptr`
@@ -123,7 +123,7 @@ The goal of this lab:
     - `bread` to read the start of log_data
       - `bwrite` to the actual data on disk with `blknum`, `offset`, and data from `data_ptr`
       - `bwrite` to the metadata of the file using what is stored in the log_data
-      - `bwrite` to the log_data: set `commit_flag = 0`
+      - `bwrite` to the log_data: set `commit_flag = 0`r
   - `log_check()`: check in when opening file
     - `bread` the start of the log_metadata, loop through it to find the same `inum`
       - if `commit_flag == 1`, call `copy_to_disk()`
