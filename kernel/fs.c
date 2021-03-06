@@ -119,6 +119,7 @@ static void read_dinode(uint inum, struct dinode *dip) {
     locki(&icache.inodefile);
 
   readi(&icache.inodefile, (char *)dip, INODEOFF(inum), sizeof(*dip));
+  dip->max_size = dip->data.nblocks * BSIZE;
 
   if (!holding_inodefile_lock)
     unlocki(&icache.inodefile);
@@ -203,6 +204,7 @@ void locki(struct inode *ip) {
     ip->devid = dip.devid;
 
     ip->size = dip.size;
+    ip->max_size = dip.max_size;
     ip->data = dip.data;
 
     ip->valid = 1;
@@ -306,7 +308,7 @@ int writei(struct inode *ip, char *src, uint off, uint n) {
   // read-only fs, writing to inode is an error
   uint new_size = off + n;
   if (new_size > ip->max_size) {
-    // some way to append a new block
+    panic("Exceeding Max Size");
   }
   uint offset = off;
   uint written_sofar = 0;
@@ -497,8 +499,9 @@ int file_create(char* path) {
   dip.type = T_FILE;
 
   // subject to change after we finalize how to extent
-  dip.data.nblocks = 1;
+  dip.data.nblocks = DEFAULTBLK;
   dip.data.startblkno = (uint) free_extent_num;
+  dip.max_size = DEFAULTBLK * BSIZE;
 
   // update file_inode
   written = writei(&icache.inodefile, (char*) &dip, offset, sizeof(dip));
@@ -507,8 +510,9 @@ int file_create(char* path) {
       return -1;
   }
   // update bitmap
-  update_bit_map(dip.devid, (uint) free_extent_num, 1);
-  
+  for (int i = 0; i < DEFAULTBLK; i++) {
+    update_bit_map(dip.devid, (uint) free_extent_num, 1);
+  }
   // connect to directory
   // find inode of root dir
   struct inode* dir = iget(dip.devid, ROOTINO);
@@ -541,9 +545,29 @@ int find_free_extent_block(uint dev) {
       uchar byte = content->data[i];
       for (int j = 0; j < 8; i++) {  // check blk by blk
         if (byte & 1 == 0) {  // if it is 0, i.e. free
-          return start + j + i * 8;
+          int count = 1;
+          uchar b = byte;
+          for (int k = j; k < 8; k++) {
+            if (b & 1 == 0) {
+              count++;
+            }
+            b = b >> 1;
+          }
+          if (content->data[i + 1] == content->data[i + 2] && content->data[i + 1] == 0) {
+            count += 16;
+          }
+          b = content->data[i + 3];
+          for (int k = j; k > 0; k--) {
+            if (b & 1 == 0) {
+              count++;
+            }
+            b = b >> 1;
+          }
+          if (count == DEFAULTBLK) {
+            return start + j + i * 8;
+          }
         }
-        byte >> 1;
+        byte = byte >> 1;
       }
     }
     start += BPB;

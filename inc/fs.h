@@ -9,6 +9,7 @@
 #define INODEFILEINO 0 // inode file inum
 #define ROOTINO 1      // root i-number
 #define BSIZE 512      // block size
+#define DEFAULTBLK 24
 
 // Disk layout:
 // [ boot block | super block | free bit map |
