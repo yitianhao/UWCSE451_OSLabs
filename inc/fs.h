@@ -47,7 +47,7 @@ struct lognode {
   
   uint new_size;      // new size
   char pad[43];
-}
+};
 
 // offset of inode in inodefile
 #define INODEOFF(inum) ((inum) * sizeof(struct dinode))

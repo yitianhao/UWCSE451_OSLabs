@@ -365,6 +365,7 @@ int writei(struct inode *ip, char *src, uint off, uint n) {
     write_dinode(ip->inum, &di);
     ip->valid = 0;
   }
+  ip->valid = 0;
   return n;
 }
 
@@ -509,7 +510,7 @@ int file_create(char* path) {
   }
 
   // find the first free extent region for us to write on the given device
-  int free_extent_num = find_free_extent_block(dip.devid);
+  int free_extent_num = find_free_extent_block(ROOTDEV);
   if (free_extent_num == -1) {
     // no more free space for file
     // return err
@@ -523,16 +524,18 @@ int file_create(char* path) {
   dip.data.nblocks = DEFAULTBLK;
   dip.data.startblkno = (uint) free_extent_num;
   dip.max_size = DEFAULTBLK * BSIZE;
+  dip.devid = ROOTDEV;
 
   // update file_inode
   write_dinode(inum, &dip);
   // update bitmap
   for (int i = 0; i < DEFAULTBLK; i++) {
-    update_bit_map(dip.devid, (uint) free_extent_num, 1);
+    update_bit_map(ROOTDEV, (uint) free_extent_num, 1);
+    free_extent_num++;
   }
   // connect to directory
   // find inode of root dir
-  struct inode* dir = iget(dip.devid, ROOTINO);
+  struct inode* dir = iget(ROOTDEV, ROOTINO);
   // calculate offset
   uint offset = inum * sizeof(struct dirent);
   // populate dirent struct and write of disk
@@ -556,13 +559,13 @@ int file_create(char* path) {
 // using bitmap to find the first 
 static int find_free_extent_block(uint dev) {
   int start = sb.inodestart;
-  for (uint curr = BBLOCK(sb.inodestart, sb); curr < sb.inodestart; curr++) {
+  for (uint curr = BBLOCK(sb.inodestart, sb); curr < BBLOCK(sb.inodestart + sb.nblocks, sb); curr++) {
     struct buf* content = bread(dev, curr);
-    for (int i = 0; i < BSIZE; i++) {  // check 8 blks by 8 blks
+    for (int i = 0; i < BSIZE - 2; i++) {  // check 8 blks by 8 blks
       uchar byte = content->data[i];
       for (int j = 0; j < 8; i++) {  // check blk by blk
         if ((byte & 1) == 0) {  // if it is 0, i.e. free
-          int count = 1;
+          int count = 0;
           uchar b = byte;
           for (int k = j; k < 8; k++) {
             if ((b & 1) == 0) {
@@ -596,7 +599,7 @@ static int find_free_extent_block(uint dev) {
 // to be free if status = 0
 static void update_bit_map(uint dev, uint blk_num, uint status) {
   // 1.1 find the block that 'blk_num' is in
-  uint bitblk = blk_num / (BSIZE * 8);
+  uint bitblk = BBLOCK(blk_num, sb);
   blk_num = blk_num % (BSIZE * 8);
   // 1.2 find the offset
   uint offset = blk_num / 8;
@@ -605,7 +608,7 @@ static void update_bit_map(uint dev, uint blk_num, uint status) {
   uint bit_num = blk_num;
 
   // 2. load correct block from disk
-  struct buf* content = bread(dev, bitblk + sb.bmapstart);
+  struct buf* content = bread(dev, bitblk);
   // 3. update the bit  (can change to if/else, based on implementation of other functions)
   content->data[offset] = content->data[offset] ^ (1 << (bit_num));
   // 4. write to disk
