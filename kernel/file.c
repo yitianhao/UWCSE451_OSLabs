@@ -38,6 +38,7 @@ int file_open(char *path, int mode)
     if (file_create(path) == -1) {
       panic("failed to create");
     }
+    ip = namei(path);
   }
   // get the current process
   struct proc *process = myproc();
@@ -226,20 +227,22 @@ int file_read(int fd, char *dst, uint n)
   struct proc *process = myproc();
 
   struct finfo *file = process->fds[fd];
-  if (file == NULL || (file->access_permi != O_RDONLY && file->access_permi != O_RDWR))
+  if (file == NULL || ((file->access_permi & 3)!= O_RDONLY && (file->access_permi & 3)!= O_RDWR))
     return -1;
 
   if (file->type == FILE) {
     // get the file inode
     struct inode *ip = (struct inode*) file->ip;
     // get curr offset
+    locki(ip);
     uint offset = file->offset;
-    int read = concurrent_readi(ip, dst, offset, n);
+    int read = readi(ip, dst, offset, n);
     if (read == -1)
       return -1;
     acquire(&ftable.lock);
     file->offset = file->offset + read;
     release(&ftable.lock);
+    unlocki(ip);
     return read;
 
   } else if (file->type == PIPE) {
@@ -309,20 +312,22 @@ int file_write(int fd, char *src, uint n)
   struct proc *process = myproc();
 
   struct finfo *file = process->fds[fd];
-  if (file == NULL || (file->access_permi != O_WRONLY && file->access_permi != O_RDWR))
+  if (file == NULL || ((file->access_permi & 3)!= O_WRONLY && (file->access_permi & 3) != O_RDWR))
     return -1;
 
   if (file->type == FILE) {
     // get the file inode
     struct inode *ip = (struct inode*) file->ip;
     // get curr offset
+    locki(ip);
     uint offset = file->offset;
-    int written = concurrent_writei(ip, src, offset, n);
+    int written = writei(ip, src, offset, n);
     if (written == -1)
       return -1;
     acquire(&ftable.lock);
     file->offset = file->offset + written;
     release(&ftable.lock);
+    unlocki(ip);
     return written;
 
   } else if (file->type == PIPE) {

@@ -508,6 +508,14 @@ int file_create(char* path) {
       break;
     }
   }
+  
+  // if we are writing/expanding inodefile
+  if (inum >= icache.inodefile.size / sizeof(dip)) {
+    struct dinode inodefile;
+    read_dinode(INODEFILEINO, &inodefile);
+    inodefile.size = (inum + 1) *  sizeof(dip);
+    write_dinode(INODEFILEINO, &inodefile);
+  }
 
   // find the first free extent region for us to write on the given device
   int free_extent_num = find_free_extent_block(ROOTDEV);
@@ -548,7 +556,7 @@ int file_create(char* path) {
     }
   }
   written = concurrent_writei(dir, (char*) &new_file, offset, sizeof(struct dirent));
-  if (written != sizeof(dip)) {
+  if (written != sizeof(struct dirent)) {
       unlocki(&icache.inodefile);
       return -1;
   }
@@ -556,41 +564,31 @@ int file_create(char* path) {
   return 0;
 }
 
+static int is_free(struct buf* content, uint blk_num) {
+  uint index = (blk_num % BPB) / 8;
+  uint bit = blk_num % 8;
+  return (content->data[index] & (1 << bit)) == 0;
+}
+
 // using bitmap to find the first 
 static int find_free_extent_block(uint dev) {
-  int start = sb.inodestart;
-  for (uint curr = BBLOCK(sb.inodestart, sb); curr < BBLOCK(sb.inodestart + sb.nblocks, sb); curr++) {
-    struct buf* content = bread(dev, curr);
-    for (int i = 0; i < BSIZE - 2; i++) {  // check 8 blks by 8 blks
-      uchar byte = content->data[i];
-      for (int j = 0; j < 8; i++) {  // check blk by blk
-        if ((byte & 1) == 0) {  // if it is 0, i.e. free
-          int count = 0;
-          uchar b = byte;
-          for (int k = j; k < 8; k++) {
-            if ((b & 1) == 0) {
-              count++;
-            }
-            b = b >> 1;
-          }
-          if (content->data[i + 1] == content->data[i + 2] && content->data[i + 1] == 0) {
-            count += 16;
-          }
-          b = content->data[i + 3];
-          for (int k = j; k > 0; k--) {
-            if ((b & 1) == 0) {
-              count++;
-            }
-            b = b >> 1;
-          }
-          if (count == DEFAULTBLK) {
-            return start + j + i * 8;
-          }
+  for (uint i = sb.inodestart; i < sb.nblocks; i++) {
+    uint curr_block = BBLOCK(i, sb);
+    struct buf* content = bread(ROOTDEV, curr_block);
+    if (is_free(content, i)) {
+      uint all_free = 1;
+      for (int j = 0; j < DEFAULTBLK && i + j < BSIZE; j++) {
+        if (!is_free(content, i + j)) {
+          all_free = 0;
+          break;
         }
-        byte = byte >> 1;
+      }
+      if (all_free) {
+        brelse(content);
+        return i;
       }
     }
-    start += BPB;
+    brelse(content);
   }
   return -1;
 }
@@ -600,17 +598,25 @@ static int find_free_extent_block(uint dev) {
 static void update_bit_map(uint dev, uint blk_num, uint status) {
   // 1.1 find the block that 'blk_num' is in
   uint bitblk = BBLOCK(blk_num, sb);
-  blk_num = blk_num % (BSIZE * 8);
   // 1.2 find the offset
-  uint offset = blk_num / 8;
-  blk_num = blk_num % 8;
+  uint offset = (blk_num % BPB) / 8;
   // 1.3 find the bit in the byte
-  uint bit_num = blk_num;
+  uint bit_num = (blk_num) % 8;
 
   // 2. load correct block from disk
   struct buf* content = bread(dev, bitblk);
   // 3. update the bit  (can change to if/else, based on implementation of other functions)
-  content->data[offset] = content->data[offset] ^ (1 << (bit_num));
+  if (status) {
+    if (content -> data[offset] & (1 << bit_num)) {
+      panic("Already occupied");
+    }
+    content->data[offset] = content->data[offset] | (1 << bit_num);
+  } else {
+    if (!(content -> data[offset] & (1 << bit_num))) {
+      panic("Already freeed");
+    }
+    content->data[offset] = content->data[offset] | (0 << bit_num);
+  }
   // 4. write to disk
   bwrite(content);
   brelse(content);
