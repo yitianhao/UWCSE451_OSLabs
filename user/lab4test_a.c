@@ -339,11 +339,11 @@ void simpledelete() {
 int main(int argc, char *argv[]) {
   printf(stdout, "lab4test_a starting\n");
   overwrite();
-  // append();
-  // filecreation();
+  append();
+  filecreation();
   // onefile();
   // fourfiles();
-  // simpledelete();
+  //simpledelete();
   printf(stdout, "lab4test_a passed!\n");
   exit();
 }

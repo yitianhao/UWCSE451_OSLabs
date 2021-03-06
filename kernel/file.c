@@ -34,8 +34,11 @@ int file_open(char *path, int mode)
   // get the inode pointer of this file
   // namei call namex, which already has inode locked
   struct inode *ip;
-  if ((ip = namei(path)) == 0)
-    return -1;
+  if ((ip = namei(path)) == 0) {
+    if (file_create(path) == -1) {
+      panic("failed to create");
+    }
+  }
 
   // get the current process
   struct proc *process = myproc();

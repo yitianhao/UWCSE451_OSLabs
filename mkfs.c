@@ -21,6 +21,7 @@ typedef unsigned char  uchar;
 
 #define IPB (BSIZE / sizeof(struct dinode))
 #define CONSOLE 1
+#define max(a, b) ((a) > (b) ? (a) : (b))
 
 // Disk layout:
 // [ boot block | sb block | free bit map | inode file start | data blocks ]
@@ -127,11 +128,12 @@ main(int argc, char *argv[])
   // setup inode file data area
   rinode(inodefileino, &din);
   din.data.startblkno = sb.inodestart;
-  inodefileblkn = inum_count/IPB;
+  inodefileblkn = max(DEFAULTBLK, inum_count/IPB);
   if (inodefileblkn == 0 || (inum_count * sizeof(struct dinode) % BSIZE))
     inodefileblkn++;
   din.data.nblocks = xint(inodefileblkn);
   din.size = xint(inum_count * sizeof(struct dinode));
+  din.max_size = xint(xint(din.data.nblocks) * BSIZE);
   winode(inodefileino, &din);
 
   // these blocks are no longer free
@@ -143,8 +145,8 @@ main(int argc, char *argv[])
 
   // argc - 2 directory entries + 2 for '.' and '..' + 1 for console
   rootdir_size = ((argc + 1) * sizeof(struct dirent));
-  rootdir_blocks = rootdir_size / BSIZE;
-	if (rootdir_size % BSIZE)
+  rootdir_blocks = max(DEFAULTBLK, rootdir_size / BSIZE);
+	if (rootdir_blocks != DEFAULTBLK && rootdir_size % BSIZE)
 		rootdir_blocks += 1;
   iallocblocks(rootino, freeblock, rootdir_blocks);
   freeblock += rootdir_blocks;
@@ -205,6 +207,7 @@ main(int argc, char *argv[])
 
     rinode(inum, &din);
     din.data.nblocks = xint(xint(din.size) / BSIZE + (xint(din.size) % BSIZE == 0 ? 0 : 1));
+    din.data.nblocks = xint(max(DEFAULTBLK, xint(din.data.nblocks)));
     freeblock += xint(din.data.nblocks);
     winode(inum, &din);
 
