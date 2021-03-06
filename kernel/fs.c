@@ -73,6 +73,8 @@ struct {
 
 static int find_free_extent_block(uint dev);
 static void update_bit_map(uint dev, uint blk_num, uint status);
+static void copy_to_disk(struct lognode* node, uint index);
+static void log_check();
 
 // Find the inode file on the disk and load it into memory
 // should only be called once, but is idempotent.
@@ -110,6 +112,7 @@ void iinit(int dev) {
           sb.nblocks, sb.bmapstart, sb.inodestart);
 
   init_inodefile(dev);
+  log_check();
 }
 
 
@@ -571,6 +574,7 @@ static int is_free(struct buf* content, uint blk_num) {
 }
 
 // using bitmap to find the first 
+// dev = device id (usually ROOTDEV)
 static int find_free_extent_block(uint dev) {
   for (uint i = sb.inodestart; i < sb.nblocks; i++) {
     uint curr_block = BBLOCK(i, sb);
@@ -595,6 +599,8 @@ static int find_free_extent_block(uint dev) {
 
 // update blk_num in bitmap to be used if status = 1
 // to be free if status = 0
+// dev = devid (use ROOTDEV)
+// blk_num = block number that has its state changed
 static void update_bit_map(uint dev, uint blk_num, uint status) {
   // 1.1 find the block that 'blk_num' is in
   uint bitblk = BBLOCK(blk_num, sb);
@@ -622,3 +628,49 @@ static void update_bit_map(uint dev, uint blk_num, uint status) {
   brelse(content);
 }
 
+// log section
+// node: a ptr to a loaded node struct
+// index: index of the struct in log meta data region
+static void copy_to_disk(struct lognode* node, uint index) {
+  // 1. copy data
+  if (!node->commit_flag) {
+    panic("Not commited");
+    return;
+  }
+  // 1.1 get data
+  struct buf* buffer = bread(ROOTDEV, node->data);
+  // 1.2 write to extent block
+  buffer->blockno = node->blk_write;
+  bwrite(buffer);
+  brelse(buffer);
+
+  // 2. update inodefile, if needed
+  struct dinode di;
+  read_dinode(node->inum, &di);
+  if (di.size != node->new_size) {
+    di.size = node->new_size;
+    write_dinode(node->inum, &di);
+  }
+
+  // 3. set commit flag
+  node->commit_flag = 0;
+  struct buf* log_meta_data = bread(ROOTDEV, sb.logstart);
+  memmove(log_meta_data->data + index * sizeof(struct lognode), node, sizeof(struct lognode));
+  bwrite(log_meta_data);
+  brelse(log_meta_data);
+}
+
+// check the entire log region when system booted
+static void log_check() {
+  // 1. load the entire region
+  struct buf* buffer;
+  struct lognode nodes[8];
+  buffer = bread(ROOTDEV, sb.logstart);
+  memmove(nodes, buffer->data, BSIZE);
+  // 2. check all log structs
+  for (int i = 0; i < 8; i++) {
+    if (nodes[i].commit_flag == 1) {
+      copy_to_disk(&(nodes[i]), i);
+    }
+  }
+}
