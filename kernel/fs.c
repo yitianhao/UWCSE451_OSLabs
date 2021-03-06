@@ -459,12 +459,12 @@ struct inode *nameiparent(char *path, char *name) {
 // create file, return 0 on success, -1 on error i.e. disk is full
 int file_create(char* path) {
   if (namei(path) != 0) {
-    return;
+    return 0;
   }
   struct dinode dip;
   uint inum;
   int written;
-  acquiresleep(&sb.lock);
+  locki(&icache.inodefile);
   // find first free dinode struct
   for (inum = 2; inum < icache.inodefile.size / sizeof(dip); inum++) {
     read_dinode(inum, &dip);
@@ -479,9 +479,9 @@ int file_create(char* path) {
     // 1. write to the file and update bitmap as well
     dip.size = 0;
     dip.type = 0;
-    written = concurrent_writei(&icache.inodefile, (char*) &dip, offset, sizeof(dip));
+    written = writei(&icache.inodefile, (char*) &dip, offset, sizeof(dip));
     if (written != sizeof(dip)) {
-      releasesleep(&sb.lock);
+      unlocki(&icache.inodefile);
       return -1;
     }
   }
@@ -490,7 +490,7 @@ int file_create(char* path) {
   if (free_extent_num == -1) {
     // no more free space for file
     // return err
-    releasesleep(&sb.lock);
+    unlocki(&icache.inodefile);
     return -1;
   }
   dip.size = 0;
@@ -501,9 +501,9 @@ int file_create(char* path) {
   dip.data.startblkno = (uint) free_extent_num;
 
   // update file_inode
-  written = concurrent_writei(&icache.inodefile, (char*) &dip, offset, sizeof(dip));
+  written = writei(&icache.inodefile, (char*) &dip, offset, sizeof(dip));
   if (written != sizeof(dip)) {
-      releasesleep(&sb.lock);
+      unlocki(&icache.inodefile);
       return -1;
   }
   // update bitmap
@@ -525,10 +525,10 @@ int file_create(char* path) {
   }
   written = concurrent_writei(&dir, (char*) &new_file, offset, sizeof(struct dirent));
   if (written != sizeof(dip)) {
-      releasesleep(&sb.lock);
+      unlocki(&icache.inodefile);
       return -1;
   }
-  releasesleep(&sb.lock);
+  unlocki(&icache.inodefile);
   return 0;
 }
 
