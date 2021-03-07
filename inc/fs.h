@@ -19,7 +19,7 @@
 struct superblock {
   uint size;       // Size of file system image (blocks)
   uint nblocks;    // Number of data blocks
-  // uint logstart;
+  uint logstart;
   uint bmapstart;  // Block number of first free map block
   uint inodestart; // Block number of the start of inode file
 };
@@ -34,20 +34,20 @@ struct dinode {
   char pad[42];       // So disk inodes fit contiguosly in a block
 };
 
-// // log meta data struct
-// struct lognode {
-//   uchar commit_flag;  // finished writing to log?
-//   uint  data;         // associated data block
+// log meta data struct
+struct lognode {
+  uchar commit_flag;  // finished writing to log?
+  uint  data;         // associated data block
 
 
-//   // dinode meta data for us to update
-//   uint inum;
-//   uint offset;        // offset that we should update from
-//   uint blk_write;     // blk that the data we need to copy to
+  // dinode meta data for us to update
+  uint inum;
+  uint offset;        // offset that we should update from
+  uint blk_write;     // blk that the data we need to copy to
 
-//   uint new_size;      // new size
-//   char pad[43];
-// };
+  uint new_size;      // new size
+  char pad[43];
+};
 
 // offset of inode in inodefile
 #define INODEOFF(inum) ((inum) * sizeof(struct dinode))

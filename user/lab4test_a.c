@@ -341,8 +341,8 @@ int main(int argc, char *argv[]) {
   overwrite();
   append();
   filecreation();
-  // onefile();
-  // fourfiles();
+  onefile();
+  fourfiles();
   //simpledelete();
   printf(stdout, "lab4test_a passed!\n");
   exit();

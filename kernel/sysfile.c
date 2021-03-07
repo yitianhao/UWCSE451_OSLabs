@@ -219,9 +219,11 @@ int sys_open(void)
     return -1;
   }
 
-  // make sure the mode is read only (lab1 implementation, commented in lab4, which support open for write)
-  // if (mode == O_CREATE || (mode == O_RDWR && strncmp(path, "console", 8) != 0) || (mode == O_WRONLY && strncmp(path, "console", 8) != 0))
+  // make sure the mode is read only
+  // if ((mode == O_RDWR && strncmp(path, "console", 8) != 0) || (mode == O_WRONLY && strncmp(path, "console", 8) != 0))
+  // {
   //   return -1;
+  // }
 
   return file_open(path, mode); // implemented in file.c
 }

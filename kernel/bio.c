@@ -76,7 +76,6 @@ static struct buf *bget(uint dev, uint blockno) {
     }
   }
 
-  cprintf("not cached\n");
 
   // Not cached; recycle some unused buffer and clean buffer
   // "clean" because B_DIRTY and not locked means log.c
