@@ -520,7 +520,7 @@ int file_create(char* path) {
   if (inum >= icache.inodefile.size / sizeof(struct dinode)) {
     struct dinode inodefile;
     read_dinode(INODEFILEINO, &inodefile);
-    inodefile.size = (inum + 1) *  sizeof(struct dinode);
+    inodefile.size += sizeof(struct dinode);
     write_dinode(INODEFILEINO, &inodefile);
   }
 
@@ -532,8 +532,12 @@ int file_create(char* path) {
     unlocki(&icache.inodefile);
     return -1;
   }
+  // 4. update bitmap for DEFAULTBLK number of extends
+  for (int i = 0; i < DEFAULTBLK; i++) {
+    update_bit_map(ROOTDEV, (uint) (free_extent_num + i), 1);
+  }
 
-  // 4. set up the new dinode and update the meta-data of dinode on disk
+  // 5. set up the new dinode and update the meta-data of dinode on disk
   dip.size = 0;
   dip.type = T_FILE;
   dip.data.nblocks = DEFAULTBLK;
@@ -543,26 +547,32 @@ int file_create(char* path) {
   // update file_inode
   write_dinode(inum, &dip);
 
-  // 5. update bitmap for DEFAULTBLK number of extends
-  for (int i = 0; i < DEFAULTBLK; i++) {
-    update_bit_map(ROOTDEV, (uint) free_extent_num, 1);
-    free_extent_num++;
-  }
-
   // 6. connect to directory
-  // find inode of root dir
   struct inode* dir = iget(ROOTDEV, ROOTINO);
   // calculate offset
   uint offset = inum * sizeof(struct dirent);
-  // populate dirent struct and write to disk
+  // populate dirent struct and write of disk
   struct dirent new_file;
   new_file.inum = inum;
-  strncpy(new_file.name, path, DIRSIZ);
+  char name[DIRSIZ];
+  if (dir != nameiparent(path, name)) {
+    unlocki(&icache.inodefile);
+    panic("different dir");
+  }
+  strncpy(new_file.name, name, DIRSIZ);
   written = concurrent_writei(dir, (char*) &new_file, offset, sizeof(struct dirent));
   if (written != sizeof(struct dirent)) {
-      unlocki(&icache.inodefile);
-      return -1;
+    unlocki(&icache.inodefile);
+    return -1;
   }
+
+
+  // if (inum >= dir->size / sizeof(struct dirent)) {
+  //   struct dinode ddir;
+  //   read_dinode(ROOTINO, &ddir);
+  //   ddir.size += sizeof(struct dirent);
+  //   write_dinode(ROOTINO, &ddir);
+  // }
 
   unlocki(&icache.inodefile);
   return 0;
@@ -628,6 +638,62 @@ static void update_bit_map(uint dev, uint blk_num, uint status) {
   // 4. write to disk
   bwrite(content);
   brelse(content);
+}
+
+int file_delete (char* path) {
+  struct inode* ip;
+  struct dinode dip;
+  //locki(&icache.inodefile);
+  // file-to-delete not found
+  if ((ip = namei(path)) == 0) {
+    //unlocki(&icache.inodefile);
+    return -1;
+  }
+  read_dinode(ip->inum, &dip);
+  // file-to-delete has open reference
+  if (ip->ref-- > 0) {
+    // cprintf("ref > 0 | ref = %d for file %s\n", ip->ref, path);
+    if (ip->ref > 0) {
+      //unlocki(&icache.inodefile);
+      return -1;
+    }
+  }
+  // file-to-delete is directory
+  if (dip.type != T_FILE) {
+    //unlocki(&icache.inodefile);
+    return -1;
+  }
+
+  // // 2. update the size of inodefile
+  // struct dinode inodefile;
+  // read_dinode(INODEFILEINO, &inodefile);
+  // inodefile.size -= sizeof(struct dinode);
+  // write_dinode(INODEFILEINO, &inodefile);
+
+  // 4. update bitmap to free the DEFAULTBLK number of extent blocks
+  for (int i = 0; i < DEFAULTBLK; i++) {
+    update_bit_map(ROOTDEV, (uint) (dip.data.startblkno + i), 0);
+  }
+
+  // 5. unlink from root directory
+  struct inode* dir = iget(ROOTDEV, ROOTINO);
+  // calculate offset
+  uint offset = ip->inum * sizeof(struct dirent);
+  // populate dirent struct and write of disk
+  struct dirent file;
+  memset(&file, 0, sizeof(struct dirent));
+  uint written = concurrent_writei(dir, (char*) &file, offset, sizeof(struct dirent));
+  if (written != sizeof(struct dirent)) {
+    //unlocki(&icache.inodefile);
+    return -1;
+  }
+
+
+  // 1. release inum in inodefile
+  memset(&dip, 0, sizeof(struct dinode));
+  write_dinode(ip->inum, &dip);
+  //unlocki(&icache.inodefile);
+  return 0;
 }
 
 // log section

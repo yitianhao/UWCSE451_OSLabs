@@ -319,8 +319,8 @@ int main(int argc, char *argv[]) {
   concurrent_create_test();
   concurrent_write_test();
   concurrent_read_test();
-  //concurrent_delete_test();
-  //delete_stress_test();
+  concurrent_delete_test();
+  delete_stress_test();
   printf(stdout, "lab4test_b passed!\n");
   exit();
 }

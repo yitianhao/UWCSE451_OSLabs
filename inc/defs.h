@@ -85,6 +85,7 @@ void stati(struct inode *, struct stat *);
 int concurrent_writei(struct inode *, char *, uint, uint);
 int writei(struct inode *, char *, uint, uint);
 int file_create(char *);
+int file_delete(char *);
 
 // ide.c
 void ideinit(void);
