@@ -516,6 +516,8 @@ int file_create(char* path) {
     }
   }
 
+  //cprintf("inum to create = %d\n", inum);
+
   // 2. if we are writing/expanding inodefile
   if (inum >= icache.inodefile.size / sizeof(struct dinode)) {
     struct dinode inodefile;
@@ -526,10 +528,12 @@ int file_create(char* path) {
 
   // 3. find the first free extent region for us to write on the given device
   int free_extent_num = find_free_extent_block(ROOTDEV);
+  //cprintf("the startblkno: %d\n", free_extent_num);
   if (free_extent_num == -1) {
     // no more free space for file
     // return err
     unlocki(&icache.inodefile);
+    //cprintf("not enough space for extent\n");
     return -1;
   }
   // 4. update bitmap for DEFAULTBLK number of extends
@@ -563,6 +567,7 @@ int file_create(char* path) {
   written = concurrent_writei(dir, (char*) &new_file, offset, sizeof(struct dirent));
   if (written != sizeof(struct dirent)) {
     unlocki(&icache.inodefile);
+    //cprintf("written to dir file failed\n");
     return -1;
   }
 
@@ -633,7 +638,7 @@ static void update_bit_map(uint dev, uint blk_num, uint status) {
     if (!(content -> data[offset] & (1 << bit_num))) {
       panic("Already free-ed");
     }
-    content->data[offset] = content->data[offset] | (0 << bit_num);
+    content->data[offset] = content->data[offset] & ~(1 << bit_num);
   }
   // 4. write to disk
   bwrite(content);
@@ -661,6 +666,8 @@ int file_delete (char* path) {
     return -1;
   }
 
+  //cprintf("inum to delete = %d\n", ip->inum);
+
   // // 2. update the size of inodefile
   if (ip->inum == icache.inodefile.size / sizeof(struct dinode)) {
     struct dinode inodefile;
@@ -686,7 +693,6 @@ int file_delete (char* path) {
     unlocki(&icache.inodefile);
     return -1;
   }
-
 
   // 1. release inum in inodefile
   memset(&dip, 0, sizeof(struct dinode));
