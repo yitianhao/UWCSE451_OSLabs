@@ -643,32 +643,31 @@ static void update_bit_map(uint dev, uint blk_num, uint status) {
 int file_delete (char* path) {
   struct inode* ip;
   struct dinode dip;
-  //locki(&icache.inodefile);
   // file-to-delete not found
   if ((ip = namei(path)) == 0) {
-    //unlocki(&icache.inodefile);
     return -1;
   }
+  locki(&icache.inodefile);
   read_dinode(ip->inum, &dip);
-  // file-to-delete has open reference
-  if (ip->ref-- > 0) {
-    // cprintf("ref > 0 | ref = %d for file %s\n", ip->ref, path);
-    if (ip->ref > 0) {
-      //unlocki(&icache.inodefile);
-      return -1;
-    }
+
+  irelease(ip);
+  if (ip->ref > 0) {
+    unlocki(&icache.inodefile);
+    return -1;
   }
   // file-to-delete is directory
   if (dip.type != T_FILE) {
-    //unlocki(&icache.inodefile);
+    unlocki(&icache.inodefile);
     return -1;
   }
 
   // // 2. update the size of inodefile
-  // struct dinode inodefile;
-  // read_dinode(INODEFILEINO, &inodefile);
-  // inodefile.size -= sizeof(struct dinode);
-  // write_dinode(INODEFILEINO, &inodefile);
+  if (ip->inum == icache.inodefile.size / sizeof(struct dinode)) {
+    struct dinode inodefile;
+    read_dinode(INODEFILEINO, &inodefile);
+    inodefile.size -= sizeof(struct dinode);
+    write_dinode(INODEFILEINO, &inodefile);
+  }
 
   // 4. update bitmap to free the DEFAULTBLK number of extent blocks
   for (int i = 0; i < DEFAULTBLK; i++) {
@@ -684,7 +683,7 @@ int file_delete (char* path) {
   memset(&file, 0, sizeof(struct dirent));
   uint written = concurrent_writei(dir, (char*) &file, offset, sizeof(struct dirent));
   if (written != sizeof(struct dirent)) {
-    //unlocki(&icache.inodefile);
+    unlocki(&icache.inodefile);
     return -1;
   }
 
@@ -692,7 +691,7 @@ int file_delete (char* path) {
   // 1. release inum in inodefile
   memset(&dip, 0, sizeof(struct dinode));
   write_dinode(ip->inum, &dip);
-  //unlocki(&icache.inodefile);
+  unlocki(&icache.inodefile);
   return 0;
 }
 
