@@ -361,6 +361,7 @@ int writei(struct inode *ip, char *src, uint off, uint n) {
     m = min(n - tot, BSIZE - off % BSIZE);
     memmove(bp->data + off % BSIZE, src, m);
     bwrite(bp);
+    //log_write(ip->inum, ip->size, bp);
     brelse(bp);
   }
 
@@ -784,7 +785,7 @@ static void log_check() {
   // 2. check all log structs
   for (int i = 0; i < 8; i++) {
     if (nodes[i].commit_flag == 1) {
-      copy_to_disk(&(nodes[i]), i);
+      copy_to_disk(&(nodes[i]));
     }
   }
 }
