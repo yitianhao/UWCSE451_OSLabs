@@ -36,7 +36,8 @@ struct dinode {
 
 // log meta data struct
 struct lognode {
-  uchar commit_flag;  // finished writing to log?
+  uchar commit_flag;  // ready to start copying?
+  uchar dirty_flag;   // finished writing to log?
   uint  data;         // associated data block
 
 
@@ -46,7 +47,7 @@ struct lognode {
   uint blk_write;     // blk that the data we need to copy to
 
   uint new_size;      // new size
-  char pad[43];
+  char pad[42];
 };
 
 // offset of inode in inodefile

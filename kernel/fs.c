@@ -78,7 +78,8 @@ static int find_free_extent_block(uint dev);
 static void update_bit_map(uint dev, uint blk_num, uint status);
 static uint find_free_lognode();
 static void log_write(uint inum, uint new_size, struct buf* bp);
-static void copy_to_disk(struct lognode* node);
+static void copy_to_disk();
+static void log_commit();
 static void log_check();
 
 // Find the inode file on the disk and load it into memory
@@ -360,20 +361,22 @@ int writei(struct inode *ip, char *src, uint off, uint n) {
     struct buf* bp = bread(ip->dev, ip->data.startblkno + off / BSIZE);
     m = min(n - tot, BSIZE - off % BSIZE);
     memmove(bp->data + off % BSIZE, src, m);
-    bwrite(bp);
-    //log_write(ip->inum, ip->size, bp);
+    //bwrite(bp);
+    log_write(ip->inum, max((off + m), ip->size), bp);
+    log_commit();
+    copy_to_disk();
     brelse(bp);
   }
 
 
   // update inodefile
-  if (ip->inum != icache.inodefile.inum) {
-    struct dinode di;
-    read_dinode(ip->inum, &di);
-    di.size = new_size;
-    write_dinode(ip->inum, &di);
-    ip->valid = 0;
-  }
+  // if (ip->inum != icache.inodefile.inum) {
+  //   struct dinode di;
+  //   read_dinode(ip->inum, &di);
+  //   di.size = new_size;
+  //   write_dinode(ip->inum, &di);
+  //   ip->valid = 0;
+  // }
   ip->valid = 0;
   return n;
 }
@@ -644,7 +647,10 @@ static void update_bit_map(uint dev, uint blk_num, uint status) {
     content->data[offset] = content->data[offset] & ~(1 << bit_num);
   }
   // 4. write to disk
-  bwrite(content);
+  // bwrite(content);
+  log_write(-1, 0, content);
+  log_commit();
+  copy_to_disk();
   brelse(content);
 }
 
@@ -708,71 +714,128 @@ int file_delete(char* path) {
 
 //
 static uint find_free_lognode() {
-  struct buf* log_meta_data = bread(ROOTDEV, sb.logstart);
-  uint off = sb.logstart;
-  for (; off < sb.logstart + BSIZE; off += sizeof(struct lognode)) {
-    if (((log_meta_data->data[off] & (1 << 0)) != 0) == 0) {
-      brelse(log_meta_data);
-      return off;
+  // struct buf* log_meta_data = bread(ROOTDEV, sb.logstart);
+  // uint off = sb.logstart;
+  // for (; off < sb.logstart + BSIZE; off += sizeof(struct lognode)) {
+  //   if (((log_meta_data->data[off] & (1 << 0)) != 0) == 0) {
+  //     brelse(log_meta_data);
+  //     return off;
+  //   }
+  // }
+  // brelse(log_meta_data);
+  // return -1;
+
+  // 1. load the entire region
+  struct buf* buffer;
+  struct lognode nodes[8];
+  buffer = bread(ROOTDEV, sb.logstart);
+  memmove(nodes, buffer->data, BSIZE);
+  // 2. check all log structs
+  for (int i = 0; i < 8; i++) {
+    if (nodes[i].dirty_flag == 0) {
+      brelse(buffer);
+      return sb.logstart + i + 1;
     }
   }
-  brelse(log_meta_data);
+
+  brelse(buffer);
+
   return -1;
 }
 
 static void log_write(uint inum, uint new_size, struct buf* bp) {
-  struct lognode* node;
-  if ((node->data = find_free_lognode()) == -1) return -1;
-  node->inum = inum;
-  node->blk_write = bp->blockno;
-  node->new_size = new_size;
-  node->commit_flag = 1;
+  struct lognode node;
+  if ((node.data = find_free_lognode()) == -1) {
+    panic("not enough block in log\n");
+  }
+  node.inum = inum;
+  node.blk_write = bp->blockno;
+  node.new_size = new_size;
+  node.dirty_flag = 1;
+  node.commit_flag = 0;
 
   // write the content of bp to log
-  struct buf* log_data = bread(ROOTDEV, node->data);
+  struct buf* log_data = bread(ROOTDEV, node.data);
   memmove(log_data->data, bp->data, BSIZE);
   bwrite(log_data);
   brelse(log_data);
-  bp->flags |= B_DIRTY;
+  //bp->flags |= B_DIRTY;
 
   // write log meta-data
   struct buf* log_meta_data = bread(ROOTDEV, sb.logstart);
-  uint off = node->data - sb.logstart - 1;
-  memmove(log_meta_data->data + off, node, sizeof(struct lognode));
+  uint off = (node.data - sb.logstart - 1) * sizeof(struct lognode);
+  memmove(log_meta_data->data + off, &node, sizeof(struct lognode));
   bwrite(log_meta_data);
   brelse(log_meta_data);
+
+}
+
+static void log_commit() {
+  // 1. load the entire region
+  struct buf* buffer;
+  struct lognode nodes[8];
+  buffer = bread(ROOTDEV, sb.logstart);
+  memmove(nodes, buffer->data, BSIZE);
+  // 2. check all log structs
+  for (int i = 0; i < 8; i++) {
+    nodes[i].commit_flag = 1;
+  }
+  memmove(buffer->data, nodes, BSIZE);
+  bwrite(buffer);
+  brelse(buffer);
 }
 
 // node: a ptr to a loaded node struct
 // index: index of the struct in log meta data region
-static void copy_to_disk(struct lognode* node) {
-  // 1. copy data
-  if (!node->commit_flag) {
-    panic("Not commited");
-    return;
+static void copy_to_disk() {
+
+  // 1. load the entire region
+  struct buf* buffer;
+  struct lognode nodes[8];
+  buffer = bread(ROOTDEV, sb.logstart);
+  memmove(nodes, buffer->data, BSIZE);
+  // 2. check all log structs
+  for (int i = 0; i < 8; i++) {
+    // 1. copy data
+    if (!nodes[i].commit_flag) {
+      panic("Not commited");
+      return;
+    }
+
+    if (!nodes[i].dirty_flag) continue;
+
+    // 1.1 get data
+    struct buf* b = bread(ROOTDEV, nodes[i].data);
+    // 1.2 write to extent block
+    b->blockno = nodes[i].blk_write;
+    bwrite(b);
+    brelse(b);
+
+    // 2. update inodefile, if needed
+    if (nodes[i].inum > 0) {
+      struct dinode di;
+      read_dinode(nodes[i].inum, &di);
+      if (di.size != nodes[i].new_size) {
+        di.size = nodes[i].new_size;
+        write_dinode(nodes[i].inum, &di);
+      }
+    }
+    nodes[i].commit_flag = 0;
+    nodes[i].dirty_flag = 0;
   }
-  // 1.1 get data
-  struct buf* buffer = bread(ROOTDEV, node->data);
-  // 1.2 write to extent block
-  buffer->blockno = node->blk_write;
+  memmove(buffer->data, nodes, BSIZE);
   bwrite(buffer);
   brelse(buffer);
 
-  // 2. update inodefile, if needed
-  struct dinode di;
-  read_dinode(node->inum, &di);
-  if (di.size != node->new_size) {
-    di.size = node->new_size;
-    write_dinode(node->inum, &di);
-  }
 
   // 3. set commit flag
-  node->commit_flag = 0;
-  struct buf* log_meta_data = bread(ROOTDEV, sb.logstart);
-  uint off = node->data - sb.logstart - 1;
-  memmove(log_meta_data->data + off, node, sizeof(struct lognode));
-  bwrite(log_meta_data);
-  brelse(log_meta_data);
+  // log_commit(0);
+  // node->commit_flag = 0;
+  // struct buf* log_meta_data = bread(ROOTDEV, sb.logstart);
+  // uint off = (node->data - sb.logstart - 1) * sizeof(struct lognode);
+  // memmove(log_meta_data->data + off, node, sizeof(struct lognode));
+  // bwrite(log_meta_data);
+  // brelse(log_meta_data);
 }
 
 // check the entire log region when system booted
@@ -784,8 +847,13 @@ static void log_check() {
   memmove(nodes, buffer->data, BSIZE);
   // 2. check all log structs
   for (int i = 0; i < 8; i++) {
-    if (nodes[i].commit_flag == 1) {
+    if (nodes[i].commit_flag == 0) {
+      brelse(buffer);
+      return;
+    }
+    if (nodes[i].commit_flag == 1 && nodes[i].dirty_flag == 1) {
       copy_to_disk(&(nodes[i]));
     }
   }
+  brelse(buffer);
 }
