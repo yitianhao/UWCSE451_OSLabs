@@ -294,6 +294,7 @@ void delete_stress_test() {
   printBar(0, false);
   for (int i = 1; i <= 100000; ++i) {
     int fd = open("file", O_RDWR | O_CREATE);
+    //printf(1, "has opened file | %d\n", i);
     if (fd == -1)
       error("Unable to open file on %d", i);
     if (close(fd) == -1)
@@ -319,8 +320,8 @@ int main(int argc, char *argv[]) {
   concurrent_create_test();
   concurrent_write_test();
   concurrent_read_test();
-  //concurrent_delete_test();
-  //delete_stress_test();
+  concurrent_delete_test();
+  delete_stress_test();
   printf(stdout, "lab4test_b passed!\n");
   exit();
 }

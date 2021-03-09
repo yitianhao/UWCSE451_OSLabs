@@ -76,6 +76,7 @@ static struct buf *bget(uint dev, uint blockno) {
     }
   }
 
+
   // Not cached; recycle some unused buffer and clean buffer
   // "clean" because B_DIRTY and not locked means log.c
   // hasn't yet committed the changes to the buffer.
@@ -142,7 +143,7 @@ void brelse(struct buf *b) {
 }
 
 // Print the data at the given block.
-// Format: block_no, byte index, data 
+// Format: block_no, byte index, data
 // Note: Data stored in blocks on disk are in little endian.
 void print_data_at_block(uint block) {
   cprintf("Printing data at block=%d\n", block);

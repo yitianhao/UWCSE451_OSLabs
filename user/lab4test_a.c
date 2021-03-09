@@ -301,7 +301,7 @@ void simpledelete() {
   if (fstat(fd3, &ss) == -1)
     error("Unable to stat open file");
   int in3 = ss.ino;
-  printf(1, "%d  %d  %d", in1, in2, in3);
+  printf(1, "%d  %d  %d\n", in1, in2, in3);
   if (in3 != in1 || in3 == in2)
     error("File allocation does not reuse inums");
   int fd4 = open("df4", O_RDWR | O_CREATE);
@@ -317,6 +317,7 @@ void simpledelete() {
   unlink("df2");
   unlink("df3");
   unlink("df4");
+  printf(1, "Check inum usage/reuse and ordering OK\n");
 
   // You should not be able to read from a deleted file
   for (int i = 0; i < 8; ++i)
@@ -343,7 +344,7 @@ int main(int argc, char *argv[]) {
   filecreation();
   onefile();
   fourfiles();
-  //simpledelete();
+  simpledelete();
   printf(stdout, "lab4test_a passed!\n");
   exit();
 }

@@ -264,5 +264,8 @@ int sys_pipe(void)
  */
 int sys_unlink(void) {
   // LAB 4
-  return -1;
+  char* path;
+  if (argstr(0, &path) < 0) return -1;
+
+  return file_delete(path);  // implemented in fs.c
 }

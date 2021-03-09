@@ -23,7 +23,6 @@ typedef unsigned char  uchar;
 #define CONSOLE 1
 #define max(a, b) ((a) > (b) ? (a) : (b))
 
-
 // Disk layout:
 // [ boot block | sb block | free bit map | inode file start | data blocks ]
 
