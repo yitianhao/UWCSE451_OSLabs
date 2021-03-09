@@ -9,6 +9,7 @@
 #define ROOTINO 1      // root i-number
 #define BSIZE 512      // block size
 #define DEFAULTBLK 24
+#define LOG_SIZE 32
 
 // Disk layout:
 // [ boot block | super block | free bit map |
@@ -42,12 +43,12 @@ struct lognode {
 
 
   // dinode meta data for us to update
-  uint inum;
-  uint offset;        // offset that we should update from
+  // uint inum;
+  // uint offset;        // offset that we should update from
   uint blk_write;     // blk that the data we need to copy to
 
-  uint new_size;      // new size
-  char pad[42];
+  // uint new_size;      // new size
+  char pad[6];
 };
 
 // offset of inode in inodefile
