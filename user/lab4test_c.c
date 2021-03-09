@@ -26,7 +26,7 @@ int INUM_START = 24;
 
 
 // will return only if
-// system is consistent. 
+// system is consistent.
 void check_system_consistent() {
   int fd;
   struct stat st;
@@ -45,7 +45,7 @@ void check_system_consistent() {
       error("Root size shrunk, uh oh. Not consistent.");
     }
   } else {
-    // File does exist. 
+    // File does exist.
     if (fstat(fd, &st) != 0) {
       error("Cannot stat new file. Not consistent.");
     }

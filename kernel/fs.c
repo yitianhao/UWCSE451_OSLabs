@@ -76,7 +76,9 @@ struct {
 
 static int find_free_extent_block(uint dev);
 static void update_bit_map(uint dev, uint blk_num, uint status);
-static void copy_to_disk(struct lognode* node, uint index);
+static uint find_free_lognode();
+static void log_write(uint inum, uint new_size, struct buf* bp);
+static void copy_to_disk(struct lognode* node);
 static void log_check();
 
 // Find the inode file on the disk and load it into memory
@@ -645,7 +647,7 @@ static void update_bit_map(uint dev, uint blk_num, uint status) {
   brelse(content);
 }
 
-int file_delete (char* path) {
+int file_delete(char* path) {
   struct inode* ip;
   struct dinode dip;
   // file-to-delete not found
@@ -701,10 +703,48 @@ int file_delete (char* path) {
   return 0;
 }
 
-// log section
+// ----------------------------log section--------------------------------------
+
+//
+static uint find_free_lognode() {
+  struct buf* log_meta_data = bread(ROOTDEV, sb.logstart);
+  uint off = sb.logstart;
+  for (; off < sb.logstart + BSIZE; off += sizeof(struct lognode)) {
+    if (((log_meta_data->data[off] & (1 << 0)) != 0) == 0) {
+      brelse(log_meta_data);
+      return off;
+    }
+  }
+  brelse(log_meta_data);
+  return -1;
+}
+
+static void log_write(uint inum, uint new_size, struct buf* bp) {
+  struct lognode* node;
+  if ((node->data = find_free_lognode()) == -1) return -1;
+  node->inum = inum;
+  node->blk_write = bp->blockno;
+  node->new_size = new_size;
+  node->commit_flag = 1;
+
+  // write the content of bp to log
+  struct buf* log_data = bread(ROOTDEV, node->data);
+  memmove(log_data->data, bp->data, BSIZE);
+  bwrite(log_data);
+  brelse(log_data);
+  bp->flags |= B_DIRTY;
+
+  // write log meta-data
+  struct buf* log_meta_data = bread(ROOTDEV, sb.logstart);
+  uint off = node->data - sb.logstart - 1;
+  memmove(log_meta_data->data + off, node, sizeof(struct lognode));
+  bwrite(log_meta_data);
+  brelse(log_meta_data);
+}
+
 // node: a ptr to a loaded node struct
 // index: index of the struct in log meta data region
-static void copy_to_disk(struct lognode* node, uint index) {
+static void copy_to_disk(struct lognode* node) {
   // 1. copy data
   if (!node->commit_flag) {
     panic("Not commited");
@@ -728,7 +768,8 @@ static void copy_to_disk(struct lognode* node, uint index) {
   // 3. set commit flag
   node->commit_flag = 0;
   struct buf* log_meta_data = bread(ROOTDEV, sb.logstart);
-  memmove(log_meta_data->data + index * sizeof(struct lognode), node, sizeof(struct lognode));
+  uint off = node->data - sb.logstart - 1;
+  memmove(log_meta_data->data + off, node, sizeof(struct lognode));
   bwrite(log_meta_data);
   brelse(log_meta_data);
 }
