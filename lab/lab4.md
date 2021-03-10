@@ -134,7 +134,7 @@ as well.
 
 ### Delete files
 Finally, you will need to support deleting files from the root directory
-with the `unlink` system call. If no processes have a reference to the 
+with the `unlink` system call. If no processes have a reference to the
 given filename, then the file is deleted and the space it was using should
 be made available for reuse. If there is an open reference to the file or
 the given filename does not exist in the file system, `unlink` should return
@@ -148,7 +148,7 @@ to appending to the end of the inodefile each time).
 ```c
 /*
  * arg0: char * [path to the file]
- * 
+ *
  * Given a pathname for a file, if no process has an open reference to the
  * file, sys_unlink() removes the file from the file system.
  *
@@ -241,6 +241,8 @@ crashes. A main challenge in file system design is to make the system
 crash-safe: the file system state is always consistent no matter what the state
 of execution is when the machine crashes.
 
+*Note*: You do not need to support file deletion for crash-safety.
+
 For example, suppose you use the system call `write` to append a block of data to
 a file. Appending to a file (may) require changing the bitmap to allocate a new
 data block, changing the inode to hold the new file length, and writing the
@@ -256,15 +258,15 @@ There are several ways to ensure crash-safety, and we don't specify which one
 you should choose. We will talk about several in lecture. The most common
 technique is to add journaling. The main idea is that for each multi-block
 operation (e.g. modifying a single block as well as the necessary blocks of file
-system data structures such as inodes), write each block of the overall 
+system data structures such as inodes), write each block of the overall
 operation to a separate area of the disk (the log) before any of the changes are
 written to the main part of the disk (the inode table, the bitmap, etc.).
 Once all parts of the operation are in the log, you can safely write the changes
 back to their actual locations in the file system. If a failure occurs, on
-kernel startup, you read the log to see if there were any completed operations 
+kernel startup, you read the log to see if there were any completed operations
 (meaning all blocks of the multi-block operation were written to the log before
 the crash); if so copy those changes back to the disk before continuing.
-In other words, the contents of the log are idempotent -- able to be applied 
+In other words, the contents of the log are idempotent -- able to be applied
 multiple times without changing the outcome.
 
 The log can be allocated at the beginning of the disk. The best place to add the log region
@@ -279,20 +281,20 @@ If you choose to implement journaling, you can put the logging layer between
 inode layer and block cache layer. In this way, you can use `bread`, `bwrite`
 interfaces. You need to implement two helper functions `begin_tx()` and
 `commit_tx()` to package a transaction. You will need transactions to perform
-multi-block operations such as an atomic single block write (since writing a 
+multi-block operations such as an atomic single block write (since writing a
 single block also involves modifying blocks of file system structures).
 xk supports two transactions: file write and file create.
-Additionally, you need to implement a wrapper function `log_write`. The 
+Additionally, you need to implement a wrapper function `log_write`. The
 difference between `log_write` and `bwrite` is that `log_write` does not write
 to the actual disk location. `log_write` will write to the log region instead.
-`commit_tx()` will  update the log header on disk, then go through the 
-log region and write all of the updated blocks from the log regoin to their 
+`commit_tx()` will  update the log header on disk, then go through the
+log region and write all of the updated blocks from the log regoin to their
 intended location on disk.
 If the machine crashes before log header is modified,
-the system behaves as if the multi-block transaction has not happened. If the 
+the system behaves as if the multi-block transaction has not happened. If the
 machine crashes after the log header is written, then after the machine reboots,
 xk has full knowledge of what the multi-block transaction is in the log so that
-xk can enforce the transaction to succeed. Previously when xk writes to a disk 
+xk can enforce the transaction to succeed. Previously when xk writes to a disk
 block `disk_addr`, it does something like the following:
 
 ```c
@@ -325,17 +327,18 @@ block. For example, if you want to prevent buffer `b` from eviction you can set
 the flags to be dirty by `b->flags |= B_DIRTY`. Once this is done, it will
 remain in the cache until the flags are updated to not be dirty (Like, say at
 the end of `commit_tx()`)?
-+Or extend the same inode file? Or try to create new files at the same time?... 
++Or extend the same inode file? Or try to create new files at the same time?...
 +Use `locki(ip)` and `unlocki(ip)` when appropriate.
 
 Testing for crash-safety is a bit complex. In your file system, there is a test
 file called `user/lab4test_c.c`. The test code calls a helper system call
 `crashn` which causes the system to reboot the OS after `n` disk operations.
-The test attempts to create a file for different values of `n`. 
+The test attempts to create a file for different values of `n`.
 
-#### Question #8
-File delete is not a required feature in lab4. Describe how you can implement
-it in a crash-safe manner even if the file spans multiple blocks.
+#### Question #2
+Implementing file deletion to work with journaling is not a required feature in
+lab4. Describe how you can implement it in a crash-safe manner even if the file
+spans multiple blocks.
 
 ### Exercise
 Build a crash-safe file system. Run `python2 crash_safety_test.py`. It should
@@ -381,7 +384,7 @@ qemu-system-x86_64: terminating on signal 15 from pid XXXXX (make)
 file system is crash-safe
 ```
 
-#### Question #9
+#### Question #3
 For each member of the project team, how many hours did you spend on this lab?
 
 Create a file `lab4.txt` in the top-level xk directory with
@@ -395,7 +398,7 @@ the point at which you submitted your code.
 * You may need to increase the number of blocks allocated for the root directory inode and inodefile inode if you do not allocate blocks dynamically. This can be done in `mkfs.c`.
 * Ensure that Copy-On-Write traps are allowed in Kernel mode. This will be necessary for these lab tests.
 * Crash safety tests relies on output from `lab4test_c`, so be careful when changing this file.
-* Use the `hexdump` command in linux to manually observe the `fs.img` after terminating QEMU. 
+* Use the `hexdump` command in linux to manually observe the `fs.img` after terminating QEMU.
     * You can use the `blockno` times `BSIZE` to index into the hexdump output
 (Be sure to convert to hex).
     * For `onefile.txt` you can ensure the inode was written by looking at block `inum * sizeof(struct dinode) + 27 [the inodeno, this may change based on the log section] * BSIZE`.

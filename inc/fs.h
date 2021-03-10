@@ -40,14 +40,7 @@ struct lognode {
   uchar commit_flag;  // ready to start copying?
   uchar dirty_flag;   // finished writing to log?
   uint  data;         // associated data block
-
-
-  // dinode meta data for us to update
-  // uint inum;
-  // uint offset;        // offset that we should update from
   uint blk_write;     // blk that the data we need to copy to
-
-  // uint new_size;      // new size
   char pad[2];
 };
 

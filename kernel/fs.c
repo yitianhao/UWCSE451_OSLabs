@@ -356,14 +356,6 @@ int writei(struct inode *ip, char *src, uint off, uint n) {
     copy_to_disk();
     unlocki(&icache.inodefile);
   }
-  // update inodefile
-  // if (ip->inum != icache.inodefile.inum) {
-  //   struct dinode di;
-  //   read_dinode(ip->inum, &di);
-  //   di.size = new_size;
-  //   write_dinode(ip->inum, &di);
-  //   ip->valid = 0;
-  // }
   ip->valid = 0;
   return n;
 }
@@ -509,38 +501,28 @@ int file_create(char* path) {
     }
   }
 
-  //cprintf("inum to create = %d\n", inum);
-
   // 2. if we are writing/expanding inodefile
   if (inum >= icache.inodefile.size / sizeof(struct dinode)) {
     struct dinode inodefile;
     read_dinode(INODEFILEINO, &inodefile);
     inodefile.size += sizeof(struct dinode);
     write_dinode(INODEFILEINO, &inodefile);
-    log_commit();
-    copy_to_disk();
     struct dinode rootdir;
     read_dinode(ROOTINO, &rootdir);
     rootdir.size += sizeof(struct dirent);
     write_dinode(ROOTINO, &rootdir);
-    log_commit();
-    copy_to_disk();
   }
 
   // 3. find the first free extent region for us to write on the given device
   int free_extent_num = find_free_extent_block(ROOTDEV);
-  //cprintf("the startblkno: %d\n", free_extent_num);
   if (free_extent_num == -1) {
     // no more free space for file
     // return err
     unlocki(&icache.inodefile);
-    //cprintf("not enough space for extent\n");
     return -1;
   }
   // 4. update bitmap for DEFAULTBLK number of extends
-  for (int i = 0; i < DEFAULTBLK; i++) {
-    update_bit_map(ROOTDEV, (uint) (free_extent_num + i), 1);
-  }
+  update_bit_map(ROOTDEV, (uint) (free_extent_num), 1);
 
   // 5. set up the new dinode and update the meta-data of dinode on disk
   dip.size = 0;
@@ -568,17 +550,8 @@ int file_create(char* path) {
   written = concurrent_writei(dir, (char*) &new_file, offset, sizeof(struct dirent));
   if (written != sizeof(struct dirent)) {
     unlocki(&icache.inodefile);
-    //cprintf("written to dir file failed\n");
     return -1;
   }
-
-
-  // if (inum >= dir->size / sizeof(struct dirent)) {
-  //   struct dinode ddir;
-  //   read_dinode(ROOTINO, &ddir);
-  //   ddir.size += sizeof(struct dirent);
-  //   write_dinode(ROOTINO, &ddir);
-  // }
 
   log_commit();
   copy_to_disk();
@@ -621,33 +594,27 @@ static int find_free_extent_block(uint dev) {
 // dev = devid (use ROOTDEV)
 // blk_num = block number that has its state changed
 // the algorithm is symmetric to find_free_extent_block and is_free
-static void update_bit_map(uint dev, uint blk_num, uint status) {
-  // 1.1 find the block(in the bitmap) that 'blk_num' is in
-  uint bitblk = BBLOCK(blk_num, sb);
-  // 1.2 find the offset
-  uint offset = (blk_num % BPB) / 8;
-  // 1.3 find the bit in the byte
-  uint bit_num = (blk_num) % 8;
-
-  // 2. load correct block from disk
+static void update_bit_map(uint dev, uint start_blk_num, uint status) {
+  uint bitblk = BBLOCK(start_blk_num, sb);
   struct buf* content = bread(dev, bitblk);
-  // 3. update the bit  (can change to if/else, based on implementation of other functions)
-  if (status) {
-    if (content -> data[offset] & (1 << bit_num)) {
-      panic("Already occupied");
+  for (uint i = 0; i < DEFAULTBLK; i++) {
+    // 1.2 find the offset
+    uint offset = ((start_blk_num + i) % BPB) / 8;
+    // 1.3 find the bit in the byte
+    uint bit_num = (start_blk_num + i) % 8;
+    if (status) {
+      if (content -> data[offset] & (1 << bit_num)) {
+        panic("Already occupied");
+      }
+      content->data[offset] = content->data[offset] | (1 << bit_num);
+    } else {
+      if (!(content -> data[offset] & (1 << bit_num))) {
+        panic("Already free-ed");
+      }
+      content->data[offset] = content->data[offset] & ~(1 << bit_num);
     }
-    content->data[offset] = content->data[offset] | (1 << bit_num);
-  } else {
-    if (!(content -> data[offset] & (1 << bit_num))) {
-      panic("Already free-ed");
-    }
-    content->data[offset] = content->data[offset] & ~(1 << bit_num);
   }
-  // 4. write to disk
-  // bwrite(content);
   log_write(content);
-  // log_commit();
-  // copy_to_disk();
   brelse(content);
 }
 
@@ -672,12 +639,8 @@ int file_delete(char* path) {
     return -1;
   }
 
-  //cprintf("inum to delete = %d\n", ip->inum);
-
   // 4. update bitmap to free the DEFAULTBLK number of extent blocks
-  for (int i = 0; i < DEFAULTBLK; i++) {
-    update_bit_map(ROOTDEV, (uint) (dip.data.startblkno + i), 0);
-  }
+  update_bit_map(ROOTDEV, (uint) (dip.data.startblkno), 0);
 
   // 5. unlink from root directory
   struct inode* dir = iget(ROOTDEV, ROOTINO);
@@ -704,14 +667,14 @@ int file_delete(char* path) {
     read_dinode(INODEFILEINO, &inodefile);
     inodefile.size -= sizeof(struct dinode);
     write_dinode(INODEFILEINO, &inodefile);
-    log_commit();
-    copy_to_disk();
+    // log_commit();
+    // copy_to_disk();
     struct dinode rootdir;
     read_dinode(ROOTINO, &rootdir);
     rootdir.size -= sizeof(struct dirent);
     write_dinode(ROOTINO, &rootdir);
-    log_commit();
-    copy_to_disk();
+    // log_commit();
+    // copy_to_disk();
   }
   unlocki(&icache.inodefile);
   return 0;
@@ -721,17 +684,6 @@ int file_delete(char* path) {
 
 //
 static uint find_free_lognode() {
-  // struct buf* log_meta_data = bread(ROOTDEV, sb.logstart);
-  // uint off = sb.logstart;
-  // for (; off < sb.logstart + BSIZE; off += sizeof(struct lognode)) {
-  //   if (((log_meta_data->data[off] & (1 << 0)) != 0) == 0) {
-  //     brelse(log_meta_data);
-  //     return off;
-  //   }
-  // }
-  // brelse(log_meta_data);
-  // return -1;
-
   // 1. load the entire region
   struct buf* buffer;
   struct lognode nodes[LOG_SIZE];
@@ -739,14 +691,13 @@ static uint find_free_lognode() {
   memmove(nodes, buffer->data, BSIZE);
   // 2. check all log structs
   for (int i = 0; i < LOG_SIZE; i++) {
-    if (nodes[i].dirty_flag == 0) {
+    if (nodes[i].dirty_flag != 1) {
       brelse(buffer);
       return sb.logstart + i + 1;
     }
   }
 
   brelse(buffer);
-
   return -1;
 }
 
@@ -764,7 +715,6 @@ static void log_write(struct buf* bp) {
   memmove(log_data->data, bp->data, BSIZE);
   bwrite(log_data);
   brelse(log_data);
-  //bp->flags |= B_DIRTY;
 
   // write log meta-data
   struct buf* log_meta_data = bread(ROOTDEV, sb.logstart);
@@ -772,7 +722,6 @@ static void log_write(struct buf* bp) {
   memmove(log_meta_data->data + off, &node, sizeof(struct lognode));
   bwrite(log_meta_data);
   brelse(log_meta_data);
-
 }
 
 static void log_commit() {
@@ -793,26 +742,19 @@ static void log_commit() {
 // node: a ptr to a loaded node struct
 // index: index of the struct in log meta data region
 static void copy_to_disk() {
-
   // 1. load the entire region
   struct buf* buffer;
   struct lognode nodes[LOG_SIZE];
   buffer = bread(ROOTDEV, sb.logstart);
   memmove(nodes, buffer->data, BSIZE);
-  // 2. check all log structs
+  if (nodes[0].commit_flag != 1) {
+    brelse(buffer);
+    panic("Not commited");
+    return;
+  }
   for (int i = 0; i < LOG_SIZE; i++) {
-    // 1. copy data
-    if (nodes[i].commit_flag != 1) {
-      brelse(buffer);
-      panic("Not commited");
-      return;
-    }
-
     if (nodes[i].dirty_flag != 1) continue;
-
-    // 1.1 get data
     struct buf* b = bread(ROOTDEV, nodes[i].data);
-    // 1.2 write to extent block
     b->blockno = nodes[i].blk_write;
     bwrite(b);
     brelse(b);
@@ -823,16 +765,6 @@ static void copy_to_disk() {
   memmove(buffer->data, nodes, BSIZE);
   bwrite(buffer);
   brelse(buffer);
-
-
-  // 3. set commit flag
-  // log_commit(0);
-  // node->commit_flag = 0;
-  // struct buf* log_meta_data = bread(ROOTDEV, sb.logstart);
-  // uint off = (node->data - sb.logstart - 1) * sizeof(struct lognode);
-  // memmove(log_meta_data->data + off, node, sizeof(struct lognode));
-  // bwrite(log_meta_data);
-  // brelse(log_meta_data);
 }
 
 // check the entire log region when system booted
@@ -842,15 +774,10 @@ static void log_check() {
   struct lognode nodes[LOG_SIZE];
   buffer = bread(ROOTDEV, sb.logstart);
   memmove(nodes, buffer->data, BSIZE);
-  // 2. check all log structs
-  for (int i = 0; i < LOG_SIZE; i++) {
-    if (nodes[i].commit_flag == 0) {
-      brelse(buffer);
-      return;
-    }
-    if (nodes[i].commit_flag == 1 && nodes[i].dirty_flag == 1) {
-      copy_to_disk(&(nodes[i]));
-    }
+  if (nodes[0].commit_flag == 1) {
+    brelse(buffer);
+    copy_to_disk();
+  } else {
+    brelse(buffer);
   }
-  brelse(buffer);
 }
