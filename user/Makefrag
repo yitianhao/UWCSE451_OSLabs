@@ -25,6 +25,7 @@ XK_UPROGS := \
 	$(O)/user/_lab4test_a \
 	$(O)/user/_lab4test_b \
 	$(O)/user/_lab4test_c \
+	$(O)/user/_lab5test \
 
 
 XK_TEXT_FILES := \
