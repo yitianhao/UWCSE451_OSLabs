@@ -329,53 +329,33 @@ int writei(struct inode *ip, char *src, uint off, uint n) {
       return -1;
     return devsw[ip->devid].write(ip, src, n);
   }
+  if (ip->inum > ROOTINO) {
+    locki(&icache.inodefile);
+  }
   // read-only fs, writing to inode is an error
   uint new_size = max((off + n), ip->size);
   if (new_size > ip->data.nblocks * BSIZE) {
     panic("Exceeding Max Size");
   }
-  // for (uint written = 0; written < (n + offset + BSIZE - 1) / BSIZE; written++) {
-  //   // 1. find how much that I need to write
-  //   uint to_write_size = n % (BSIZE - off);
-  //   // 2. load the block
-  //   // we need a function that translate index of block to blk_num
-  //   uint blk_num = curr_blk_index + ip->data.startblkno;  // smth we need to implement
-  //   struct buf* buffer = bread(ip->devid, blk_num);
-  //   memmove((buffer->data + off % BSIZE), src, to_write_size);
-  //   // if (log_write(ip, buffer)) {
-  //   //   // write to log and then to disk
-  //   //   // need to tell if the write was successful
-  //   //   written_sofar += to_write_size;
-  //   // } else {
-  //   //   // fail to write
-  //   //   return written_sofar;
-  //   // }
-  //   bwrite(buffer);
-  //   brelse(buffer);
-  //   off = 0;
-  //   n -= to_write_size;
-  //   curr_blk_index++;
-  //   written_sofar += to_write_size;
-  // }
+
   for (tot = 0; tot < n; tot += m, off += m, src += m) {
     struct buf* bp = bread(ip->dev, ip->data.startblkno + off / BSIZE);
     m = min(n - tot, BSIZE - off % BSIZE);
     memmove(bp->data + off % BSIZE, src, m);
     //bwrite(bp);
     log_write(bp);
-
     brelse(bp);
-    if (ip->inum > INODEFILEINO) {
-      struct dinode di;
-      read_dinode(ip->inum, &di);
-      di.size = max(n + off, ip->size);
-      write_dinode(ip->inum, &di);
-      log_commit();
-      copy_to_disk();
-    }
   }
 
-
+  if (ip->inum > ROOTINO) {
+    struct dinode di;
+    read_dinode(ip->inum, &di);
+    di.size = max(new_size, ip->size);
+    write_dinode(ip->inum, &di);
+    log_commit();
+    copy_to_disk();
+    unlocki(&icache.inodefile);
+  }
   // update inodefile
   // if (ip->inum != icache.inodefile.inum) {
   //   struct dinode di;
@@ -537,6 +517,14 @@ int file_create(char* path) {
     read_dinode(INODEFILEINO, &inodefile);
     inodefile.size += sizeof(struct dinode);
     write_dinode(INODEFILEINO, &inodefile);
+    log_commit();
+    copy_to_disk();
+    struct dinode rootdir;
+    read_dinode(ROOTINO, &rootdir);
+    rootdir.size += sizeof(struct dirent);
+    write_dinode(ROOTINO, &rootdir);
+    log_commit();
+    copy_to_disk();
   }
 
   // 3. find the first free extent region for us to write on the given device
@@ -686,14 +674,6 @@ int file_delete(char* path) {
 
   //cprintf("inum to delete = %d\n", ip->inum);
 
-  // // 2. update the size of inodefile
-  if (ip->inum == icache.inodefile.size / sizeof(struct dinode)) {
-    struct dinode inodefile;
-    read_dinode(INODEFILEINO, &inodefile);
-    inodefile.size -= sizeof(struct dinode);
-    write_dinode(INODEFILEINO, &inodefile);
-  }
-
   // 4. update bitmap to free the DEFAULTBLK number of extent blocks
   for (int i = 0; i < DEFAULTBLK; i++) {
     update_bit_map(ROOTDEV, (uint) (dip.data.startblkno + i), 0);
@@ -718,6 +698,21 @@ int file_delete(char* path) {
 
   log_commit();
   copy_to_disk();
+  // // 2. update the size of inodefile
+  if (ip->inum == icache.inodefile.size / sizeof(struct dinode)) {
+    struct dinode inodefile;
+    read_dinode(INODEFILEINO, &inodefile);
+    inodefile.size -= sizeof(struct dinode);
+    write_dinode(INODEFILEINO, &inodefile);
+    log_commit();
+    copy_to_disk();
+    struct dinode rootdir;
+    read_dinode(ROOTINO, &rootdir);
+    rootdir.size -= sizeof(struct dirent);
+    write_dinode(ROOTINO, &rootdir);
+    log_commit();
+    copy_to_disk();
+  }
   unlocki(&icache.inodefile);
   return 0;
 }
@@ -760,7 +755,6 @@ static void log_write(struct buf* bp) {
   if ((node.data = find_free_lognode()) == -1) {
     panic("not enough block in log\n");
   }
-  cprintf("starting blkno = ");
   node.blk_write = bp->blockno;
   node.dirty_flag = 1;
   node.commit_flag = 0;
@@ -808,13 +802,13 @@ static void copy_to_disk() {
   // 2. check all log structs
   for (int i = 0; i < LOG_SIZE; i++) {
     // 1. copy data
-    if (!nodes[i].commit_flag) {
+    if (nodes[i].commit_flag != 1) {
       brelse(buffer);
       panic("Not commited");
       return;
     }
 
-    if (nodes[i].dirty_flag == 0) continue;
+    if (nodes[i].dirty_flag != 1) continue;
 
     // 1.1 get data
     struct buf* b = bread(ROOTDEV, nodes[i].data);

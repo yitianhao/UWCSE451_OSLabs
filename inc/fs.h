@@ -48,7 +48,7 @@ struct lognode {
   uint blk_write;     // blk that the data we need to copy to
 
   // uint new_size;      // new size
-  char pad[6];
+  char pad[2];
 };
 
 // offset of inode in inodefile
