@@ -145,17 +145,15 @@ int fork(void)
     return -1;
   }
   // 2.1 copy-on-write
-  if (vspacemapregions(&child->vspace, &p->vspace) != 0) {
-    release(&ptable.lock);
-    return -1;
-  }
-  vspaceinstall(myproc());
-  /* to copy-on-write
   if (vspacecopy(&child->vspace, &p->vspace) != 0) {
     release(&ptable.lock);
     return -1;
   }
-  */
+  // if (vspacemapregions(&child->vspace, &p->vspace) != 0) {
+  //   release(&ptable.lock);
+  //   return -1;
+  // }
+  vspaceinstall(myproc());
 
   // 3. duplicate trap frame
   memmove(child->tf, p->tf, sizeof(*p->tf));
