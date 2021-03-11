@@ -1,0 +1,22 @@
+Question #1
+Explain how dirlookup works
+It loops over the ROOTDIR file dirent by dirent.
+Stop if the name stored on disk == name passed.
+
+Question #2
+Implementing file deletion to work with journaling is not a required feature in
+lab4. Describe how you can implement it in a crash-safe manner even if the file
+spans multiple blocks.
+Delele will update 3 things: inodefile, rootdir, and bitmap.
+Since these three things are stored in different blocks, we could do the following:
+    1. read current bitmap and change the bits representing the file's extent section to 0
+    2. read current fileinode and clean up dinode of the file
+    3. read current rootdir and clean up dirent of the file
+    4. load the modified blocks into log region
+    5. commit
+    6. write to disk from log
+
+Question #3
+For each member of the project team, how many hours did you spend on this lab?
+Kelvin Fang: 18hrs
+Yitian Hao:
