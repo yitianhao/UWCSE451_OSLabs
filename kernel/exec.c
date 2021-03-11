@@ -80,22 +80,22 @@ int exec(char *path, char **argv) {
   // vspacefree(&vs);
   // vspaceinstall(p);
 
-  // struct vspace old_vs = p->vspace;
-  // p->vspace = vs;
-  // vspaceinstall(p);
-  // vspacefree(&old_vs);
+  struct vspace old_vs = p->vspace;
+  p->vspace = vs;
+  vspaceinstall(p);
+  vspacefree(&old_vs);
 
-  pml4e_t* pgtbl = p->vspace.pgtbl;
-  vspacefree_wo_pgtbl(&p->vspace);
-  vspaceinit(&p->vspace);
-  vspaceinstall(p);
-  freevm(pgtbl);
-  if (vspacecopy(&p->vspace, &vs) != 0) {
-    vspacefree(&vs);
-    return -1;
-  }
-  vspacefree(&vs);
-  vspaceinstall(p);
+  // pml4e_t* pgtbl = p->vspace.pgtbl;
+  // vspacefree_wo_pgtbl(&p->vspace);
+  // vspaceinit(&p->vspace);
+  // vspaceinstall(p);
+  // freevm(pgtbl);
+  // if (vspacecopy(&p->vspace, &vs) != 0) {
+  //   vspacefree(&vs);
+  //   return -1;
+  // }
+  // vspacefree(&vs);
+  // vspaceinstall(p);
 
   // struct vspace old_vs = p->vspace;
   // pml4e_t* pgtbl = p->vspace.pgtbl;

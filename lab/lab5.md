@@ -1,5 +1,5 @@
 # Extra Credit Lab 5: Swappin' Pages
-**Complete Lab Due: 3/12/21**
+**Complete Lab Due: 3/18/21**
 
 ## Introduction
 Physical machines have a limited amount of physical memory. To allow applications
