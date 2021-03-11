@@ -110,7 +110,6 @@ struct buf *bread(uint dev, uint blockno) {
 void bwrite(struct buf *b) {
   if (crashn_enable) {
     crashn--;
-    cprintf("crashing with crashn = %d and bwrite to blockno = %d\n", crashn, b->blockno);
     if (crashn < 0)
       reboot();
   }
