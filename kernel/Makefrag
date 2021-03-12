@@ -12,7 +12,7 @@ QEMUOPTS_KVM    += -M q35,accel=kvm,kernel-irqchip=split -cpu host
 IOMMU     ?= intel-iommu
 #QEMUOPTS    += -device $(IOMMU),intremap=on -m 256M
 
-QEMUOPTS += -m 16M
+QEMUOPTS += -m 4M
 
 CONFIG_CGA    := 1
 CONFIG_KBD    := 1

@@ -23,6 +23,7 @@ struct vpage_info {
   short writable; // does the page have write permissions
   // user defined fields
   short copy_on_write; // tell if the current vpage is RDONLY bc of copy on write
+  uchar on_disk;
 };
 
 #define VPIPPAGE ((PGSIZE/sizeof(struct vpage_info)) - 1)

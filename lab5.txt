@@ -1,0 +1,29 @@
+Question #1
+How is the core_map allocated? Is it through kalloc? Will the core_map ever be evicted to disk?
+
+It is allocated after kernel loaded from ELF file. It directly modifies
+the start of physical address to occupy a chunk of memory.
+
+It is not through kalloc.
+
+It will never be evicted to disk.
+
+
+Question #2
+Convert values from big endian to small endian and vice-versa.
+
+
+Question #3
+What will happen if xk runs out of block cache entries?
+It will panic. "bget: no buffers"
+
+Question #4
+xk guarantees that a physical memory page has a single virtual address even in the case of
+multiple vspaces referencing it. However, in commercial operating systems, a memory mapping
+function mmap can map a file to any
+virtual address in mutliple address spaces. How would your design for swap need to change
+if a shared page can have different virtual addresses? Give a rough outline of the changes
+you would make.
+
+Instead of looping through processes to find the same virtual address, we can find the physical address
+of the evicting page in their page tables.

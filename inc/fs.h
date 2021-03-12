@@ -10,6 +10,7 @@
 #define BSIZE 512      // block size
 #define DEFAULTBLK 24
 #define LOG_SIZE 32
+#define SWAPSIZE_PAGES 2048
 
 // Disk layout:
 // [ boot block | super block | free bit map |
@@ -23,6 +24,7 @@ struct superblock {
   uint logstart;
   uint bmapstart;  // Block number of first free map block
   uint inodestart; // Block number of the start of inode file
+  uint swapstart;
 };
 
 // On-disk inode structure

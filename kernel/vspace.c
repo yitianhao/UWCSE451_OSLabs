@@ -489,6 +489,7 @@ copy_vpi_page(struct vpi_page **dst, struct vpi_page *src)
       dstvpi->used = srcvpi->used;
       dstvpi->present = srcvpi->present;
       dstvpi->ppn = srcvpi->ppn;
+      dstvpi->on_disk = srcvpi->on_disk;
       if (srcvpi->writable || srcvpi->copy_on_write) {
         srcvpi->writable = !VPI_WRITABLE;
         srcvpi->copy_on_write = 1;
@@ -664,6 +665,7 @@ int vspacemapregions(struct vspace* child, struct vspace* parent) {
         c->ppn = p->ppn;
         c->present = p->present;
         c->used = p->used;
+        c->on_disk = p->on_disk;
       }
       increment_pp_ref_ct(p->ppn << PT_SHIFT);  // implemented in kalloc.c
       release(&c->lock);
