@@ -781,3 +781,30 @@ static void log_check() {
     brelse(buffer);
   }
 }
+
+
+//----------------------------swap section---------------------------------------------
+// va: kernel virtual address of the start of the evicitng page
+// index: index of 8 blocks that are going to be written
+void swap_write(uint va, int index) {
+  uint block_no = sb.swapstart + index * 8;
+  struct buf* buffer;
+  for (; block_no < block_no + 8; block_no++, va+=BSIZE) {
+    buffer = bread(ROOTDEV, block_no);
+    memmove(buffer->data, va, BSIZE);
+    bwrite(buffer);
+    brelse(buffer);
+  }
+}
+
+// va: kernel virtual address of the start of the loading page
+// index: index of 8 blocks that are going to be read from
+void swap_read(uint va, int index) {
+  uint block_no = sb.swapstart + index * 8;
+  struct buf* buffer;
+  for (; block_no < block_no + 8; block_no++, va+=BSIZE) {
+    buffer = bread(ROOTDEV, block_no);
+    memmove(va, buffer->data, BSIZE);
+    brelse(buffer);
+  }
+}

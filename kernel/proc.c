@@ -494,3 +494,48 @@ int sbrk(int n) {
   vspaceinvalidate(&(myproc()->vspace));
   return prev_brk;
 }
+
+// evicting_page: core_map_entry of the envciting/loading page
+// swap_array_index: index of the swap array where the data of the page is going to store/ is storing on disk
+// out: 1 -> load back, 0 -> swap out
+void update_vspace(struct core_map_entry* evicting_page, int swap_array_index, int out) {
+  struct proc* p;
+  uint va = evicting_page->va;
+  uint ppn = page2pa(evicting_page) >> PT_SHIFT;
+  char lk = 0;
+  // loop through all processes
+  if (!holding(&ptable.lock)) {
+    acquire(&ptable.lock);
+    lk = 1;
+  }
+  for (p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
+    if (p->state == ZOMBIE || p->state == UNUSED)
+      continue;
+      
+    // check if the process' vspace will be affected
+    struct vregion* curr_region = va2vregion(&p->vspace, va);
+    if (curr_region == 0) {
+      continue;  // such va does not exist in this proc
+    }
+    struct vpage_info* curr_info = va2vpage_info(curr_region, va);
+    if (curr_info->ppn != ppn) {
+      continue;  // different page
+    }
+    // affected page
+    curr_info->present = out;
+    if (out) {
+      curr_info->on_disk = 0;
+      evicting_page->ref_ct++;
+    } else {
+      curr_info->on_disk = swap_array_index;
+      evicting_page->ref_ct--;
+    }
+    vspaceinvalidate(&p->vspace);
+  }
+  if (evicting_page->ref_ct != 0 && !out) {
+    panic("Did not update all affected vspaces");
+  }
+  if (lk) {
+    release(&ptable.lock);
+  }
+}

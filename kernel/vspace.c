@@ -486,6 +486,7 @@ copy_vpi_page(struct vpi_page **dst, struct vpi_page *src)
     srcvpi = &src->infos[i];
     dstvpi = &(*dst)->infos[i];
     if (srcvpi->used) {
+      increment_pp_ref_ct(srcvpi->ppn << PT_SHIFT);  // implemented in kalloc.c
       dstvpi->used = srcvpi->used;
       dstvpi->present = srcvpi->present;
       dstvpi->ppn = srcvpi->ppn;
@@ -496,7 +497,6 @@ copy_vpi_page(struct vpi_page **dst, struct vpi_page *src)
         dstvpi->copy_on_write = 1;
       }
       dstvpi->writable = !VPI_WRITABLE;
-      increment_pp_ref_ct(srcvpi->ppn << PT_SHIFT);  // implemented in kalloc.c
     }
   }
 
@@ -707,6 +707,8 @@ int vspace_copy_on_write(struct vspace* vs, uint64_t va) {
     curr_page->writable = 1;
     curr_page->copy_on_write = 0;
     curr_page->ppn = V2P(new_page) >> PT_SHIFT;
+    curr_page->present = 1;
+    curr_page->on_disk = 0;
     release(&curr_page->lock);
   }
   vspaceinvalidate(vs);

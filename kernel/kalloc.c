@@ -54,6 +54,7 @@ void detect_memory(void) {
 
 void freerange(void *vstart, void *vend);
 extern char end[]; // first address after kernel loaded from ELF file
+uchar swap_status[256];
 
 struct {
   struct spinlock lock;
@@ -61,6 +62,7 @@ struct {
 } kmem;
 
 static void setrand(unsigned int);
+static int swap_out();
 
 // Initialization happens in two phases.
 // 1. main() calls kinit1() while still using entrypgdir to place just
@@ -166,10 +168,13 @@ char *kalloc(void) {
     }
   }
 
-  if (kmem.use_lock)
-    release(&kmem.lock);
-
-  return 0;
+  if (swap_out == 0) {
+    if (kmem.use_lock)
+      release(&kmem.lock);
+    return 0;
+  } else {
+    return kalloc();
+  }
 }
 
 
@@ -237,4 +242,39 @@ int cow_copy_out_page(uint64_t pa, struct vpage_info* curr_page) {
     }
     return 0;
   }
+}
+
+static int swap_out() {
+  int i;
+  struct core_map_entry* evicted_page;
+  // 1. find a free set of 8 blocks
+  for (i = 0; i < 256; i++) {
+    if (swap_status[i] == 0) {
+      // we have found the free region
+      // mark it as used
+      swap_status[i] = ~swap_status[i];
+      break;
+    }
+  }
+  if (i == 256) {
+    // if swap section is full
+    return 0;
+  }
+  // get a random user page to evict
+  evicted_page = get_random_user_page();
+  while (evicted_page->user != 1) {
+    evicted_page = get_random_user_page();
+  }
+  // update all vspace_info if this page is involved
+  update_vspace(evicted_page, i, 0);
+  // copy out data from the page
+  uint pp = page2pa(evicted_page);
+  uint va = P2V(pp);
+  // write to disk
+  swap_write(va, i);
+  // mark the page as unsed
+  evicted_page->available = 1;
+  evicted_page->user = 0;
+  evicted_page->va = 0;
+  return 1;
 }

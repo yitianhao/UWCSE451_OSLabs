@@ -86,6 +86,8 @@ int concurrent_writei(struct inode *, char *, uint, uint);
 int writei(struct inode *, char *, uint, uint);
 int file_create(char *);
 int file_delete(char *);
+void swap_write(uint va, int index);
+void swap_read(uint va, int index);
 
 // ide.c
 void ideinit(void);
@@ -169,6 +171,7 @@ void wakeup(void *);
 void yield(void);
 void reboot(void);
 int sbrk(int n);
+void update_vspace(struct core_map_entry* evicting_page, int swap_array_index, int out);
 
 // swtch.S
 void swtch(struct context **, struct context *);
