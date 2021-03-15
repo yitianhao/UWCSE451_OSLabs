@@ -114,8 +114,8 @@ void iinit(int dev) {
   initsleeplock(&icache.inodefile.lock, "inodefile");
 
   readsb(dev, &sb);
-  cprintf("sb: size %d nblocks %d bmap start %d inodestart %d\n", sb.size,
-          sb.nblocks, sb.bmapstart, sb.inodestart);
+  cprintf("sb: size %d nblocks %d log start %d swap start %d bmap start %d inodestart %d\n", sb.size,
+          sb.nblocks, sb.logstart, sb.swapstart, sb.bmapstart, sb.inodestart);
 
   init_inodefile(dev);
   log_check();
@@ -786,7 +786,7 @@ static void log_check() {
 //----------------------------swap section---------------------------------------------
 // va: kernel virtual address of the start of the evicitng page
 // index: index of 8 blocks that are going to be written
-void swap_write(uint va, int index) {
+void swap_write(char* va, int index) {
   uint block_no = sb.swapstart + index * 8;
   struct buf* buffer;
   for (; block_no < block_no + 8; block_no++, va+=BSIZE) {
@@ -799,7 +799,7 @@ void swap_write(uint va, int index) {
 
 // va: kernel virtual address of the start of the loading page
 // index: index of 8 blocks that are going to be read from
-void swap_read(uint va, int index) {
+void swap_read(char* va, int index) {
   uint block_no = sb.swapstart + index * 8;
   struct buf* buffer;
   for (; block_no < block_no + 8; block_no++, va+=BSIZE) {

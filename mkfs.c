@@ -29,6 +29,8 @@ typedef unsigned char  uchar;
 int nbitmap = FSSIZE/(BSIZE*8) + 1;
 int nmeta;    // Number of meta blocks (boot, sb, nlog, inode, bitmap)
 int nblocks;  // Number of data blocks
+int nlogblocks = LOG_SIZE + 1;
+int nswapblocks = SWAPSIZE_PAGES * 8;
 
 int fsfd;
 struct superblock sb;
@@ -100,15 +102,15 @@ main(int argc, char *argv[])
   }
 
   // 1 fs block = 1 disk sector
-  nmeta = 2 + nbitmap + LOG_SIZE + 1 + SWAPSIZE_PAGES * 8;
+  nmeta = 2 + nbitmap + nlogblocks + nswapblocks;
   nblocks = FSSIZE - nmeta;
 
   sb.size = xint(FSSIZE);
   sb.nblocks = xint(nblocks);
-  sb.bmapstart = xint(LOG_SIZE + 2 + 1 + SWAPSIZE_PAGES * 8);
-  sb.swapstart = xint(LOG_SIZE + 2 + 1);
   sb.logstart = xint(2);
-  sb.inodestart = xint(LOG_SIZE + 2 + 1 + nbitmap + SWAPSIZE_PAGES * 8);
+  sb.swapstart = xint(2 + nlogblocks);
+  sb.bmapstart = xint(2 + nlogblocks + nswapblocks);
+  sb.inodestart = xint(2 + nlogblocks + nbitmap + nswapblocks);
 
   printf("nmeta %d (boot, super, bitmap blocks %u) blocks %d total %d\n",
        nmeta, nbitmap, nblocks, FSSIZE);

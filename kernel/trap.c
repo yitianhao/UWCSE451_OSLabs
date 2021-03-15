@@ -82,6 +82,16 @@ void trap(struct trap_frame *tf) {
     if (tf->trapno == TRAP_PF) {
       num_page_faults += 1;
 
+      // lab5: check if swap in is needed
+      struct vregion* vr = va2vregion(&myproc()->vspace, addr);
+      if (vr) {
+        struct vpage_info* curr_info = va2vpage_info(vr, addr);
+        if (curr_info && curr_info->on_disk) { // same as used but not present
+          if (swap_in(curr_info->on_disk) != -1) return;
+          else panic("swap out failed\n");
+        }
+      }
+
       // lab3: check if it caused by copy on write
       if (validate_cow(addr) == 0 && (tf->err & 2)) {
         // it is caused by copy on write

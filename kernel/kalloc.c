@@ -10,11 +10,13 @@
 #include <param.h>
 #include <spinlock.h>
 #include <vspace.h>
+#include <proc.h>
 
 int npages = 0;
 int pages_in_use;
 int pages_in_swap;
 int free_pages;
+uint64_t cow_ppn;
 
 struct core_map_entry *core_map = NULL;
 
@@ -54,7 +56,7 @@ void detect_memory(void) {
 
 void freerange(void *vstart, void *vend);
 extern char end[]; // first address after kernel loaded from ELF file
-uchar swap_status[256];
+uchar swap_status[256]; // 1 byte = 8 blocks -> 1 page
 
 struct {
   struct spinlock lock;
@@ -168,7 +170,7 @@ char *kalloc(void) {
     }
   }
 
-  if (swap_out == 0) {
+  if (swap_out() == 0) {
     if (kmem.use_lock)
       release(&kmem.lock);
     return 0;
@@ -226,7 +228,8 @@ int cow_copy_out_page(uint64_t pa, struct vpage_info* curr_page) {
       acquire(&kmem.lock);
   }
   struct core_map_entry* curr = pa2page(pa);
-  if (curr->ref_ct > 1) {  
+  if (curr->ref_ct > 1) {
+    cow_ppn = PGNUM(page2pa(curr));
     curr->ref_ct--;
     if (kmem.use_lock) {
     release(&kmem.lock);
@@ -253,6 +256,7 @@ static int swap_out() {
       // we have found the free region
       // mark it as used
       swap_status[i] = ~swap_status[i];
+      pages_in_swap++;
       break;
     }
   }
@@ -260,21 +264,52 @@ static int swap_out() {
     // if swap section is full
     return 0;
   }
-  // get a random user page to evict
+
+  // 2. get a random user page to evict
   evicted_page = get_random_user_page();
-  while (evicted_page->user != 1) {
+  while (evicted_page->user != 1 || PGNUM(page2pa(evicted_page)) == 0 ||
+         PGNUM(page2pa(evicted_page)) == cow_ppn) {
     evicted_page = get_random_user_page();
   }
-  // update all vspace_info if this page is involved
-  update_vspace(evicted_page, i, 0);
-  // copy out data from the page
-  uint pp = page2pa(evicted_page);
-  uint va = P2V(pp);
+
+  // 3. update all vspace_info if this page is involved
+  // update_vspace(evicted_page, i, 0, PGNUM(page2pa(evicted_page)));
+
+  // 4. copy out data from the page
+  char* va = P2V(page2pa(evicted_page));
   // write to disk
   swap_write(va, i);
-  // mark the page as unsed
+
+  update_vspace(evicted_page, i, 0, PGNUM(page2pa(evicted_page)));
+
+  // 6. mark the page as unused
   evicted_page->available = 1;
   evicted_page->user = 0;
   evicted_page->va = 0;
+
+  vspaceinstall(myproc());
+  return 1;
+}
+
+int swap_in(uchar on_disk_idx) {
+  if (kmem.use_lock)
+    acquire(&kmem.lock);
+
+  char* va = kalloc();
+  if (va == 0){
+    if (kmem.use_lock) release(&kmem.lock);
+    cprintf("fall in kalloc\n");
+    return -1;
+  }
+  struct core_map_entry* swapped_in_page = pa2page(V2P(va));
+  mark_user_mem(V2P(va), (uint64_t) va);
+  pages_in_swap--;
+
+  update_vspace(swapped_in_page, on_disk_idx, 1, PGNUM(page2pa(swapped_in_page)));
+
+  swap_write(va, on_disk_idx);
+
+  if (kmem.use_lock)
+    release(&kmem.lock);
   return 1;
 }

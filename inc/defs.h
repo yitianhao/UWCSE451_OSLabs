@@ -86,8 +86,8 @@ int concurrent_writei(struct inode *, char *, uint, uint);
 int writei(struct inode *, char *, uint, uint);
 int file_create(char *);
 int file_delete(char *);
-void swap_write(uint va, int index);
-void swap_read(uint va, int index);
+void swap_write(char* va, int index);
+void swap_read(char* va, int index);
 
 // ide.c
 void ideinit(void);
@@ -110,6 +110,7 @@ void mark_user_mem(uint64_t, uint64_t);
 void mark_kernel_mem(uint64_t);
 struct core_map_entry *get_random_user_page();
 int cow_copy_out_page(uint64_t pa, struct vpage_info* curr_page);
+int swap_in(uchar on_disk_idx);
 
 // kbd.c
 void kbdintr(void);
@@ -171,7 +172,7 @@ void wakeup(void *);
 void yield(void);
 void reboot(void);
 int sbrk(int n);
-void update_vspace(struct core_map_entry* evicting_page, int swap_array_index, int out);
+void update_vspace(struct core_map_entry* evicting_page, int swap_array_index, int out, uint ppn);
 
 // swtch.S
 void swtch(struct context **, struct context *);
