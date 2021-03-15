@@ -361,6 +361,22 @@ free_page_desc_list(struct vpi_page *page)
   kfree((char *)page);
 }
 
+// recursivley frees all swaped_out pages
+static void
+free_swaped_pages(struct vpi_page *page) {
+  assert((uint64_t) page % PGSIZE == 0);
+
+  if (!page)
+    return;
+  
+  free_swaped_pages(page->next);
+  for (int i = 0; i < VPIPPAGE; i++) {
+    if (page->infos[i].used && page->infos[i].present == 0) {
+      update_swap_ref_ct(-1, page->infos[i].on_disk);
+    }
+  }
+}
+
 // frees the given vpsace by freeing each page that
 // the vspace is using and then frees the underlying page
 // table
@@ -370,6 +386,7 @@ vspacefree(struct vspace *vs)
   struct vregion *vr;
 
   for (vr = &vs->regions[0]; vr < &vs->regions[NREGIONS]; vr++) {
+    free_swaped_pages(vr->pages);
     free_page_desc_list(vr->pages);
     memset(vr, 0, sizeof(struct vregion));
   }
@@ -486,11 +503,16 @@ copy_vpi_page(struct vpi_page **dst, struct vpi_page *src)
     srcvpi = &src->infos[i];
     dstvpi = &(*dst)->infos[i];
     if (srcvpi->used) {
-      increment_pp_ref_ct(srcvpi->ppn << PT_SHIFT);  // implemented in kalloc.c
+      if (srcvpi->present) {
+        increment_pp_ref_ct(srcvpi->ppn << PT_SHIFT);  // implemented in kalloc.c
+      }
       dstvpi->used = srcvpi->used;
       dstvpi->present = srcvpi->present;
       dstvpi->ppn = srcvpi->ppn;
       dstvpi->on_disk = srcvpi->on_disk;
+      if (srcvpi->present == 0) {
+        update_swap_ref_ct(1, srcvpi->on_disk);
+      }
       if (srcvpi->writable || srcvpi->copy_on_write) {
         srcvpi->writable = !VPI_WRITABLE;
         srcvpi->copy_on_write = 1;

@@ -86,8 +86,11 @@ void trap(struct trap_frame *tf) {
       struct vregion* vr = va2vregion(&myproc()->vspace, addr);
       if (vr) {
         struct vpage_info* curr_info = va2vpage_info(vr, addr);
-        if (curr_info && curr_info->on_disk) { // same as used but not present
-          if (swap_in(curr_info->on_disk) != -1) return;
+        if (curr_info->used && !curr_info->present) { // same as used but not present
+          if (swap_in(curr_info->on_disk, addr) != -1) {
+            vspaceinstall(myproc());
+            return;
+          }
           else panic("swap in failed\n");
         }
       }
@@ -96,6 +99,7 @@ void trap(struct trap_frame *tf) {
       if (validate_cow(addr) == 0 && (tf->err & 2)) {
         // it is caused by copy on write
         if (vspace_copy_on_write(&myproc()->vspace, addr) != -1) { // implemented in vspace.c
+          vspaceinstall(myproc());
           return;
         } else {
           panic("err in vspace_copy_on_write");

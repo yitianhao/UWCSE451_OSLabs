@@ -157,6 +157,11 @@ struct core_map_entry {
   uint64_t va;  // if it is used by kernel only, this field is 0
 };
 
+struct swap_stat {
+  int ref_ct;
+  uchar used;
+};
+
 #endif
 
 // Application segment type bits

@@ -4,6 +4,7 @@
 
 #include <cdefs.h>
 #include <defs.h>
+#include <fs.h>
 #include <e820.h>
 #include <memlayout.h>
 #include <mmu.h>
@@ -11,6 +12,8 @@
 #include <spinlock.h>
 #include <vspace.h>
 #include <proc.h>
+
+#define STACK_BOUND 2147483647 - 10 * 4096
 
 int npages = 0;
 int pages_in_use;
@@ -55,7 +58,7 @@ void detect_memory(void) {
 
 void freerange(void *vstart, void *vend);
 extern char end[]; // first address after kernel loaded from ELF file
-uchar swap_status[256]; // 1 byte = 8 blocks -> 1 page
+struct swap_stat swap_status[SWAPSIZE_PAGES]; // 1 byte = 8 blocks -> 1 page
 
 struct {
   struct spinlock lock;
@@ -102,12 +105,15 @@ void freerange(void *vstart, void *vend) {
 // initializing the allocator; see kinit above.)
 void kfree(char *v) {
   struct core_map_entry *r;
+  uint lock = 0;
 
   if ((uint64_t)v % PGSIZE || v < _end || V2P(v) >= (uint64_t)(npages * PGSIZE))
     panic("kfree");
 
-  if (kmem.use_lock)
+  if (kmem.use_lock && !holding(&kmem.lock)) {
     acquire(&kmem.lock);
+    lock = 1;
+  }
 
   r = (struct core_map_entry *)pa2page(V2P(v));
   if (r->ref_ct > 1) {
@@ -126,7 +132,7 @@ void kfree(char *v) {
   r->available = 1;
   r->user = 0;
   r->va = 0;
-  if (kmem.use_lock)
+  if (kmem.use_lock && lock)
     release(&kmem.lock);
 }
 
@@ -153,9 +159,12 @@ mark_kernel_mem(uint64_t pa)
 char *kalloc(void) {
 
   int i;
+  int lock = 0;
 
-  if (kmem.use_lock)
+  if (kmem.use_lock && !holding(&kmem.lock)) {
     acquire(&kmem.lock);
+    lock = 1;
+  }
 
   for (i = 0; i < npages; i++) {
     if (core_map[i].available == 1) {
@@ -163,17 +172,19 @@ char *kalloc(void) {
       core_map[i].ref_ct = 1;
       pages_in_use++;
       free_pages--;
-      if (kmem.use_lock)
+      if (kmem.use_lock && lock)
         release(&kmem.lock);
       return P2V(page2pa(&core_map[i]));
     }
   }
 
   if (swap_out() == 0) {
-    if (kmem.use_lock)
+    if (kmem.use_lock && lock)
       release(&kmem.lock);
     return 0;
   } else {
+    if (kmem.use_lock && lock)
+      release(&kmem.lock);
     return kalloc();
   }
 }
@@ -245,35 +256,52 @@ int cow_copy_out_page(uint64_t pa, struct vpage_info* curr_page) {
   }
 }
 
+static struct core_map_entry* get_rand_sat_page() {
+  struct core_map_entry* res = get_random_user_page();
+  while (res->user != 1 || PGNUM(page2pa(res)) == 0 || res->ref_ct == 0 || res->va >= STACK_BOUND || res->va <= 10 * PGSIZE) {
+    res = get_random_user_page();
+  }
+  return res;
+}
+
 static int swap_out() {
   int i;
   struct core_map_entry* evicted_page;
+  if (kmem.use_lock && !holding(&kmem.lock)) {
+    panic("must be locked");
+  }
   // 1. find a free set of 8 blocks
-  for (i = 0; i < 256; i++) {
-    if (swap_status[i] == 0) {
+  for (i = 0; i < SWAPSIZE_PAGES; i++) {
+    if (swap_status[i].used == 0) {
       // we have found the free region
       // mark it as used
-      swap_status[i] = ~swap_status[i];
+      swap_status[i].used = 1;
       pages_in_swap++;
       break;
     }
   }
-  if (i == 256) {
+  if (i == SWAPSIZE_PAGES) {
     // if swap section is full
+    panic("SWAP REGION FULL");
     return 0;
   }
 
   // 2. get a random user page to evict
-  evicted_page = get_random_user_page();
-  while (evicted_page->user != 1 || PGNUM(page2pa(evicted_page)) == 0) {
-    evicted_page = get_random_user_page();
-  }
+  evicted_page = get_rand_sat_page();
 
   // 3. update all vspace_info if this page is involved
-  update_vspace(evicted_page, i, 0, PGNUM(page2pa(evicted_page)));
+  while (update_vspace(evicted_page, evicted_page->va, i, 0, PGNUM(page2pa(evicted_page)))) {
+    evicted_page = get_rand_sat_page();
+  }
+
+  if (kmem.use_lock)
+      release(&kmem.lock);
 
   // 4. copy out data from the page and write to disk
   swap_write(P2V(page2pa(evicted_page)), i);
+  
+  if (kmem.use_lock)
+    acquire(&kmem.lock);
 
   // 6. mark the page as unused
   evicted_page->available = 1;
@@ -283,25 +311,43 @@ static int swap_out() {
   return 1;
 }
 
-int swap_in(uchar on_disk_idx) {
+int swap_in(uint on_disk_idx, uint addr) {
+  char* va = kalloc();
   if (kmem.use_lock)
     acquire(&kmem.lock);
-
-  char* va = kalloc();
   if (va == 0){
     if (kmem.use_lock) release(&kmem.lock);
-    cprintf("fall in kalloc\n");
+    cprintf("fail in kalloc\n");
     return -1;
   }
   struct core_map_entry* swapped_in_page = pa2page(V2P(va));
+  swapped_in_page->ref_ct = 0;
   mark_user_mem(V2P(va), (uint64_t) va);
   pages_in_swap--;
 
-  update_vspace(swapped_in_page, on_disk_idx, 1, PGNUM(page2pa(swapped_in_page)));
-
-  swap_write(va, on_disk_idx);
-
+  update_vspace(swapped_in_page, addr, on_disk_idx, 1, PGNUM(page2pa(swapped_in_page)));
   if (kmem.use_lock)
     release(&kmem.lock);
+  swap_read(va, on_disk_idx);
+  swap_status[on_disk_idx].used = 0;
   return 1;
+}
+
+// increase/decrease ref_ct of a swap region
+// direction = 1 to increase
+// direction = -1 to decrease
+void update_swap_ref_ct(int direction, int index) {
+  int lock = 0;
+  if (kmem.use_lock) {
+    if (!holding(&kmem.lock)) {
+      acquire(&kmem.lock);
+      lock = 1;
+    }
+  }
+  swap_status[index].ref_ct = swap_status[index].ref_ct + direction * 1;
+  if (swap_status[index].ref_ct == 0) {
+    swap_status[index].used = 0;
+  }
+  if (kmem.use_lock && lock)
+    release(&kmem.lock);
 }

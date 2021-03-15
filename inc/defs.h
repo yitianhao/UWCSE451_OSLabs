@@ -110,7 +110,8 @@ void mark_user_mem(uint64_t, uint64_t);
 void mark_kernel_mem(uint64_t);
 struct core_map_entry *get_random_user_page();
 int cow_copy_out_page(uint64_t pa, struct vpage_info* curr_page);
-int swap_in(uchar on_disk_idx);
+int swap_in(uint on_disk_idx, uint addr);
+void update_swap_ref_ct(int direction, int index);
 
 // kbd.c
 void kbdintr(void);
@@ -172,7 +173,7 @@ void wakeup(void *);
 void yield(void);
 void reboot(void);
 int sbrk(int n);
-void update_vspace(struct core_map_entry* evicting_page, int swap_array_index, int out, uint ppn);
+int update_vspace(struct core_map_entry* evicting_page, uint va, int swap_array_index, int out, uint ppn);
 
 // swtch.S
 void swtch(struct context **, struct context *);

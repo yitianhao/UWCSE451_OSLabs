@@ -42,7 +42,6 @@ void swaptest(void) {
     }
 
     sysinfo(&info1);
-
     // check whether memory data is consistent
     for (i = 0; i < num_pages_to_alloc; i++) {
       if (i % 100 == 0)

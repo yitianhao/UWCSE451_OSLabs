@@ -497,10 +497,9 @@ int sbrk(int n) {
 
 // evicting_page: core_map_entry of the envciting/loading page
 // swap_array_index: index of the swap array where the data of the page is going to store/ is storing on disk
-// out: 1 -> load back, 0 -> swap out
-void update_vspace(struct core_map_entry* evicting_page, int swap_array_index, int out, uint ppn) {
+// in: 1 -> load back, 0 -> swap out
+int update_vspace(struct core_map_entry* evicting_page, uint va, int swap_array_index, int in, uint ppn) {
   struct proc* p;
-  uint va = evicting_page->va;
   char lk = 0;
   // loop through all processes
   if (!holding(&ptable.lock)) {
@@ -508,34 +507,47 @@ void update_vspace(struct core_map_entry* evicting_page, int swap_array_index, i
     lk = 1;
   }
   for (p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
-    if (p->state == ZOMBIE || p->state == UNUSED)
+    if (p->state == UNUSED)
       continue;
-
     // check if the process' vspace will be affected
     struct vregion* curr_region = va2vregion(&p->vspace, va);
     if (curr_region == 0) {
-      continue;  // such va does not exist in this proc
+      curr_region = va2vregion(&p->vspace, va - 1);
+      if (curr_region == 0) {
+        continue;  // such va does not exist in this proc
+      }
     }
     struct vpage_info* curr_info = va2vpage_info(curr_region, va);
-    if (curr_info->ppn != ppn) {
-      continue;  // different page
-    }
-    // affected page
-    curr_info->present = out;
-    if (out) {
+    if (in) {
+      if (curr_info->present != 0 || curr_info->on_disk != swap_array_index) {
+        continue;
+      }
       curr_info->on_disk = 0;
       evicting_page->ref_ct++;
+      curr_info->present = 1;
+      curr_info->ppn = ppn;
+      update_swap_ref_ct(-1, swap_array_index);
+      vspaceinvalidate(&p->vspace);
     } else {
+      if (curr_info->present != 1 || curr_info->ppn != ppn) {
+        continue;  // different page
+      }
+      // affected page
+      curr_info->present = in;
       curr_info->on_disk = swap_array_index;
       evicting_page->ref_ct--;
+      curr_info->ppn = 0;
+      update_swap_ref_ct(1, swap_array_index);
+      vspacemarknotpresent(&p->vspace, va);
     }
     // vspaceinvalidate(&p->vspace);
-    vspacemarknotpresent(&p->vspace, va);
-  }
-  if (evicting_page->ref_ct != 0 && !out) {
-    panic("Did not update all affected vspaces");
+
   }
   if (lk) {
     release(&ptable.lock);
   }
+  if (evicting_page->ref_ct != 0 && !in) {
+    return -1;
+  }
+  return 0;
 }

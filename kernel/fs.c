@@ -788,8 +788,9 @@ static void log_check() {
 // index: index of 8 blocks that are going to be written
 void swap_write(char* va, int index) {
   uint block_no = sb.swapstart + index * 8;
+  uint limit = block_no + 8;
   struct buf* buffer;
-  for (; block_no < block_no + 8; block_no++, va+=BSIZE) {
+  for (; block_no < limit; block_no++, va+=BSIZE) {
     buffer = bread(ROOTDEV, block_no);
     memmove(buffer->data, va, BSIZE);
     bwrite(buffer);
@@ -801,8 +802,9 @@ void swap_write(char* va, int index) {
 // index: index of 8 blocks that are going to be read from
 void swap_read(char* va, int index) {
   uint block_no = sb.swapstart + index * 8;
+  uint limit = block_no + 8;
   struct buf* buffer;
-  for (; block_no < block_no + 8; block_no++, va+=BSIZE) {
+  for (; block_no < limit; block_no++, va+=BSIZE) {
     buffer = bread(ROOTDEV, block_no);
     memmove(va, buffer->data, BSIZE);
     brelse(buffer);
