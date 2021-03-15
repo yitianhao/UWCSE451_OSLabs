@@ -16,7 +16,6 @@ int npages = 0;
 int pages_in_use;
 int pages_in_swap;
 int free_pages;
-uint64_t cow_ppn;
 
 struct core_map_entry *core_map = NULL;
 
@@ -229,7 +228,6 @@ int cow_copy_out_page(uint64_t pa, struct vpage_info* curr_page) {
   }
   struct core_map_entry* curr = pa2page(pa);
   if (curr->ref_ct > 1) {
-    cow_ppn = PGNUM(page2pa(curr));
     curr->ref_ct--;
     if (kmem.use_lock) {
     release(&kmem.lock);
@@ -267,25 +265,21 @@ static int swap_out() {
 
   // 2. get a random user page to evict
   evicted_page = get_random_user_page();
-  while (evicted_page->user != 1 || PGNUM(page2pa(evicted_page)) == 0 ||
-         PGNUM(page2pa(evicted_page)) == cow_ppn) {
+  while (evicted_page->user != 1 || PGNUM(page2pa(evicted_page)) == 0) {
     evicted_page = get_random_user_page();
   }
 
   // 3. update all vspace_info if this page is involved
   update_vspace(evicted_page, i, 0, PGNUM(page2pa(evicted_page)));
 
-  // 4. copy out data from the page
-  char* va = P2V(page2pa(evicted_page));
-  // write to disk
-  swap_write(va, i);
+  // 4. copy out data from the page and write to disk
+  swap_write(P2V(page2pa(evicted_page)), i);
 
   // 6. mark the page as unused
   evicted_page->available = 1;
   evicted_page->user = 0;
   evicted_page->va = 0;
 
-  vspaceinstall(myproc());
   return 1;
 }
 
