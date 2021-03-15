@@ -88,7 +88,7 @@ void trap(struct trap_frame *tf) {
         struct vpage_info* curr_info = va2vpage_info(vr, addr);
         if (curr_info && curr_info->on_disk) { // same as used but not present
           if (swap_in(curr_info->on_disk) != -1) return;
-          else panic("swap out failed\n");
+          else panic("swap in failed\n");
         }
       }
 

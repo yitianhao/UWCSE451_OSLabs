@@ -273,14 +273,12 @@ static int swap_out() {
   }
 
   // 3. update all vspace_info if this page is involved
-  // update_vspace(evicted_page, i, 0, PGNUM(page2pa(evicted_page)));
+  update_vspace(evicted_page, i, 0, PGNUM(page2pa(evicted_page)));
 
   // 4. copy out data from the page
   char* va = P2V(page2pa(evicted_page));
   // write to disk
   swap_write(va, i);
-
-  update_vspace(evicted_page, i, 0, PGNUM(page2pa(evicted_page)));
 
   // 6. mark the page as unused
   evicted_page->available = 1;
