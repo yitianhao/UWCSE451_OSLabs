@@ -323,7 +323,6 @@ int swap_in(uint on_disk_idx, uint addr) {
   struct core_map_entry* swapped_in_page = pa2page(V2P(va));
   swapped_in_page->ref_ct = 0;
   mark_user_mem(V2P(va), (uint64_t) va);
-  pages_in_swap--;
 
   update_vspace(swapped_in_page, addr, on_disk_idx, 1, PGNUM(page2pa(swapped_in_page)));
   if (kmem.use_lock)
