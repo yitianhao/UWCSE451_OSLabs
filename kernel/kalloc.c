@@ -347,6 +347,7 @@ void update_swap_ref_ct(int direction, int index) {
   swap_status[index].ref_ct = swap_status[index].ref_ct + direction * 1;
   if (swap_status[index].ref_ct == 0) {
     swap_status[index].used = 0;
+    pages_in_swap--;
   }
   if (kmem.use_lock && lock)
     release(&kmem.lock);
