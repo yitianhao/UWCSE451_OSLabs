@@ -6,15 +6,19 @@ the start of physical address to occupy a chunk of memory.
 
 It is not through kalloc.
 
-It will never be evicted to disk.
+It will never be evicted to disk. It's content (i.e., pages) stored might been evicted to disk, but
+this structure is stored in memory.
 
 
 Question #2
+mkfs.c has functions like xint, xshort. What is their purpose?
+
 Convert values from big endian to small endian and vice-versa.
 
 
 Question #3
 What will happen if xk runs out of block cache entries?
+
 It will panic. "bget: no buffers"
 
 Question #4
@@ -27,3 +31,9 @@ you would make.
 
 Instead of looping through processes to find the same virtual address, we can find the physical address
 of the evicting page in their page tables.
+
+Question #5
+For each member of the project team, how many hours did you spend on this lab?
+
+Kelvin Fang: 8 hours
+Yitian Hao: 5.5 hours
