@@ -258,7 +258,7 @@ int cow_copy_out_page(uint64_t pa, struct vpage_info* curr_page) {
 
 static struct core_map_entry* get_rand_sat_page() {
   struct core_map_entry* res = get_random_user_page();
-  while (res->user != 1 || PGNUM(page2pa(res)) == 0 || res->ref_ct == 0 || res->va >= STACK_BOUND || res->va <= 10 * PGSIZE) {
+  while (res->user != 1 || PGNUM(page2pa(res)) == 0 || res->ref_ct == 0) {
     res = get_random_user_page();
   }
   return res;
